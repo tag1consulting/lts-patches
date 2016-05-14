@@ -1,0 +1,33 @@
+diff -ruN features/features.admin.inc features/features.admin.inc
+--- features/features.admin.inc	2016-04-13 18:53:54.482133230 +0200
++++ features/features.admin.inc	2016-04-13 18:54:10.046492334 +0200
+@@ -596,7 +596,7 @@
+   // page callback rather than as part of the submit handler as some modules
+   // have includes/other directives of importance in hooks that have already
+   // been called in this page load.
+-  $form_state['redirect'] = 'admin/build/features/cleanup/clear';
++  $form_state['redirect'] = array('admin/build/features/cleanup/clear', array('token' => drupal_get_token()));
+ 
+   $features = $form['#features'];
+   if (!empty($features)) {
+@@ -619,7 +619,7 @@
+   $form = array();
+ 
+   // Clear caches if we're getting a post-submit redirect that requests it.
+-  if ($cache_clear) {
++  if ($cache_clear && !empty($_GET['token']) && drupal_valid_token($_GET['token'])) {
+     drupal_flush_all_caches();
+ 
+     // The following functions need to be run because drupal_flush_all_caches()
+diff -ruN features/features.info features/features.info
+--- features/features.info	2016-04-13 18:53:54.482133230 +0200
++++ features/features.info	2016-04-13 18:54:21.694761054 +0200
+@@ -4,7 +4,7 @@
+ package = "Features"
+ 
+ ; Information added by drupal.org packaging script on 2011-12-15
+-version = "6.x-1.2"
++version = "6.x-1.2-p1"
+ core = "6.x"
+ project = "features"
+ datestamp = "1323963939"
