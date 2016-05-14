@@ -1,0 +1,38 @@
+diff -ru ./includes/view.inc ./includes/view.inc
+--- ./includes/view.inc	2015-02-11 10:38:52.000000000 +0100
++++ ./includes/view.inc	2016-04-20 18:25:55.841114801 +0200
+@@ -597,7 +597,7 @@
+    */
+   function _init_handler($key, $info) {
+     // Load the requested items from the display onto the object.
+-    $this->$key = $this->display_handler->get_handlers($key);
++    $this->$key = &$this->display_handler->get_handlers($key);
+ 
+     // This reference deals with difficult PHP indirection.
+     $handlers = &$this->$key;
+Nur in ./includes: view.inc.orig.
+diff -ru ./plugins/views_plugin_display.inc ./plugins/views_plugin_display.inc
+--- ./plugins/views_plugin_display.inc	2015-02-11 10:38:52.000000000 +0100
++++ ./plugins/views_plugin_display.inc	2016-04-20 18:25:55.845114888 +0200
+@@ -838,7 +838,7 @@
+   /**
+    * Get a full array of handlers for $type. This caches them.
+    */
+-  function get_handlers($type) {
++  function &get_handlers($type) {
+     if (!isset($this->handlers[$type])) {
+       $this->handlers[$type] = array();
+       $types = views_object_types();
+Nur in .: views-6.3.patch.
+diff -ru ./views.info ./views.info
+--- ./views.info	2015-02-11 10:43:07.000000000 +0100
++++ ./views.info	2016-04-20 18:26:14.689525216 +0200
+@@ -4,7 +4,7 @@
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2015-02-11
+-version = "6.x-3.2"
++version = "6.x-3.2-p1"
+ core = "6.x"
+ project = "views"
+ datestamp = "1423647787"
