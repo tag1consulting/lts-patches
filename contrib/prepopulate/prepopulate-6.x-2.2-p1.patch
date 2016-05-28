@@ -1,0 +1,78 @@
+diff --git a/README.txt b/README.txt
+index 34cd45f..8757fc2 100644
+--- a/README.txt
++++ b/README.txt
+@@ -17,7 +17,7 @@ syntax like:
+ 
+ http://www.example.com/node/add/blog?edit[title]=this is the title&edit[body]=body goes here
+ 
+-Refer to the USAGE.txt file or the online handbook at http://drupal.org/node/228167 for more examples.
++Refer to the online handbook at http://drupal.org/node/228167 for more examples.
+ 
+ Please report any bugs or feature requests to the Prepopulate issue queue:
+ http://drupal.org/project/issues/prepopulate
+diff --git a/prepopulate.info b/prepopulate.info
+index 20705b7..1788ea9 100644
+--- a/prepopulate.info
++++ b/prepopulate.info
+@@ -3,7 +3,7 @@ description = Allows form elements to be prepopulated from the URL.
+ core = 6.x
+ 
+ ; Information added by drupal.org packaging script on 2011-06-08
+-version = "6.x-2.2"
++version = "6.x-2.2-p1"
+ core = "6.x"
+ project = "prepopulate"
+ datestamp = "1307572019"
+diff --git a/prepopulate.module b/prepopulate.module
+index 6ac4422..3458332 100644
+--- a/prepopulate.module
++++ b/prepopulate.module
+@@ -25,9 +25,6 @@ function prepopulate_help($path, $arg) {
+  */
+ function prepopulate_form_alter(&$form, $form_state, $form_id) {
+   // Provide for accepting base64 encoded fields.
+-  if (isset($_REQUEST['pp'])) {
+-    parse_str(base64_decode($_REQUEST['pp']), $_REQUEST);
+-  } 
+   if (isset($_REQUEST['edit'])) {
+     $form['#after_build'][] = 'prepopulate_after_build';
+   }
+@@ -37,9 +34,6 @@ function prepopulate_form_alter(&$form, $form_state, $form_id) {
+  * An #after_build function to set the values prepopulated in the request.
+  */
+ function prepopulate_after_build($form, &$form_state) {
+-  if (isset($_REQUEST['pp'])) {
+-    parse_str(base64_decode($_REQUEST['pp']), $_REQUEST);
+-  }
+   if (isset($_REQUEST['edit'])) {
+     $request = (array)$_REQUEST['edit'];
+     _prepopulate_request_walk($form, $request);
+@@ -56,7 +50,19 @@ function prepopulate_after_build($form, &$form_state) {
+  *   String or array. Value(s) to be applied to the element.
+  */
+ function _prepopulate_request_walk(&$form, &$requestslice) {
+-  $limited_types = array('value', 'hidden', 'button', 'image_button');
++  $limited_types = array(
++    'actions',
++    'button',
++    'container',
++    'token',
++    'value',
++    'hidden',
++    'image_button',
++    'password',
++    'password_confirm',
++    'text_format',
++    'markup',
++  );
+   if (is_array($requestslice)) {
+     foreach (array_keys($requestslice) as $requestvar) {
+       if (element_child($requestvar) && !is_null($form[$requestvar]) && !in_array($form[$requestvar]['#type'], $limited_types)) {
+@@ -78,4 +84,4 @@ function _prepopulate_request_walk(&$form, &$requestslice) {
+       $form['#value'] = $requestslice;
+     }
+   }
+-}
+\ No newline at end of file
++}
