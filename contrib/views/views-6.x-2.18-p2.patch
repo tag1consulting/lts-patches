@@ -1,0 +1,39 @@
+diff --git a/views.info b/views.info
+index 054a2de..15ab119 100644
+--- a/views.info
++++ b/views.info
+@@ -4,7 +4,7 @@ package = Views
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2015-02-11
+-version = "6.x-2.18-p1"
++version = "6.x-2.18-p2"
+ core = "6.x"
+ project = "views"
+ datestamp = "1423647793"
+diff --git a/views_export/views_export.info b/views_export/views_export.info
+index 01f9cb8..068774a 100644
+--- a/views_export/views_export.info
++++ b/views_export/views_export.info
+@@ -6,7 +6,7 @@ dependencies[] = views
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2015-02-11
+-version = "6.x-2.18"
++version = "6.x-2.18-p2"
+ core = "6.x"
+ project = "views"
+ datestamp = "1423647793"
+diff --git a/views_ui.info b/views_ui.info
+index b58fdbe..24fe01e 100644
+--- a/views_ui.info
++++ b/views_ui.info
+@@ -5,7 +5,7 @@ core = 6.x
+ dependencies[] = views
+ 
+ ; Information added by Drupal.org packaging script on 2015-02-11
+-version = "6.x-2.18"
++version = "6.x-2.18-p2"
+ core = "6.x"
+ project = "views"
+ datestamp = "1423647793"
