@@ -1,0 +1,26 @@
+diff --git a/features.info b/features.info
+index 1a0eb82..cf070d7 100644
+--- a/features.info
++++ b/features.info
+@@ -4,7 +4,7 @@ core = 6.x
+ package = "Features"
+ 
+ ; Information added by drupal.org packaging script on 2011-12-15
+-version = "6.x-1.2-p1"
++version = "6.x-1.2-p2"
+ core = "6.x"
+ project = "features"
+ datestamp = "1323963939"
+diff --git a/tests/features_test.info b/tests/features_test.info
+index 8be0be4..9cd4dca 100644
+--- a/tests/features_test.info
++++ b/tests/features_test.info
+@@ -18,7 +18,7 @@ name = "Features Tests"
+ package = "Testing"
+ 
+ ; Information added by drupal.org packaging script on 2011-12-15
+-version = "6.x-1.2"
++version = "6.x-1.2-p2"
+ core = "6.x"
+ project = "features"
+ datestamp = "1323963939"
