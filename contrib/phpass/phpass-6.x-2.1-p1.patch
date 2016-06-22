@@ -1,0 +1,39 @@
+Nur in phpass: phpass-6.x-2.1-p1.patch.
+diff -ru phpass.info phpass.info
+--- phpass.info	2016-06-22 19:28:58.378746155 +0200
++++ phpass.info	2016-06-22 20:12:28.326446347 +0200
+@@ -4,8 +4,7 @@
+ php = 5.2.4
+ 
+ ; Information added by Drupal.org packaging script on 2014-11-19
+-version = "6.x-2.1"
++version = "6.x-2.1-p1"
+ core = "6.x"
+ project = "phpass"
+ datestamp = "1416425332"
+-
+diff -ru phpass.module phpass.module
+--- phpass.module	2016-06-22 19:28:58.378746155 +0200
++++ phpass.module	2016-06-22 20:09:44.650220327 +0200
+@@ -15,6 +15,21 @@
+       // Catch password changes and update the password hash.
+       if (!empty($edit['pass'])) {
+         phpass_user_rehash_password($account, $edit['pass']);
++
++        // If the password changed, delete all open sessions and recreate
++        // the current one. The following code is copied from user.module
++        if (is_object($account) && $account->uid) {
++          sess_destroy_uid($account->uid);
++          if ($account->uid == $GLOBALS['user']->uid) {
++            if (function_exists('drupal_session_regenerate')) {
++              // Support for Pressflow.
++              drupal_session_regenerate();
++            }
++            else {
++              sess_regenerate();
++            }
++          }
++        }
+       }
+       // Prevent the md5 from being saved on update.
+       $edit['pass'] = NULL;
