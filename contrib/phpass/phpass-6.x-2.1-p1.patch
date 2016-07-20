@@ -1,8 +1,8 @@
-Nur in phpass: phpass-6.x-2.1-p1.patch.
-diff -ru phpass.info phpass.info
---- phpass.info	2016-06-22 19:28:58.378746155 +0200
-+++ phpass.info	2016-06-22 20:12:28.326446347 +0200
-@@ -4,8 +4,7 @@
+diff --git a/phpass.info b/phpass.info
+index 602ff11..0785cc9 100644
+--- a/phpass.info
++++ b/phpass.info
+@@ -4,8 +4,7 @@ core = 6.x
  php = 5.2.4
  
  ; Information added by Drupal.org packaging script on 2014-11-19
@@ -12,10 +12,11 @@ diff -ru phpass.info phpass.info
  project = "phpass"
  datestamp = "1416425332"
 -
-diff -ru phpass.module phpass.module
---- phpass.module	2016-06-22 19:28:58.378746155 +0200
-+++ phpass.module	2016-06-22 20:09:44.650220327 +0200
-@@ -15,6 +15,21 @@
+diff --git a/phpass.module b/phpass.module
+index 335d215..f071610 100644
+--- a/phpass.module
++++ b/phpass.module
+@@ -15,6 +15,21 @@ function phpass_user($op, &$edit, &$account, $category = NULL) {
        // Catch password changes and update the password hash.
        if (!empty($edit['pass'])) {
          phpass_user_rehash_password($account, $edit['pass']);
