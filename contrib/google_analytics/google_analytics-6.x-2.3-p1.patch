@@ -1,0 +1,62 @@
+diff --git a/googleanalytics.admin.inc b/googleanalytics.admin.inc
+index 0e7c9c1..84e3738 100644
+--- a/googleanalytics.admin.inc
++++ b/googleanalytics.admin.inc
+@@ -164,6 +164,8 @@ function googleanalytics_admin_settings_form(&$form_state) {
+   );
+ 
+   // Advanced feature configurations.
++  $user_access_add_js_snippets = !user_access('add JS snippets for google analytics');
++  $user_access_add_js_snippets_permission_warning = $user_access_add_js_snippets ? ' <em>' . t('This field has been disabled because you do not have sufficient permissions to edit it.') . '</em>' : '';
+   $form['advanced'] = array(
+     '#type' => 'fieldset',
+     '#title' => t('Advanced settings'),
+@@ -224,17 +226,19 @@ function googleanalytics_admin_settings_form(&$form_state) {
+     '#type' => 'textarea',
+     '#title' => t('Code snippet (before)'),
+     '#default_value' => variable_get('googleanalytics_codesnippet_before', ''),
++    '#disabled' => $user_access_add_js_snippets,
+     '#rows' => 5,
+     '#wysiwyg' => FALSE,
+-    '#description' => t('Code in this textarea will be added <strong>before</strong> pageTracker._trackPageview().')
++    '#description' => t('Code in this textarea will be added <strong>before</strong> pageTracker._trackPageview().') . $user_access_add_js_snippets_permission_warning,
+   );
+   $form['advanced']['codesnippet']['googleanalytics_codesnippet_after'] = array(
+     '#type' => 'textarea',
+     '#title' => t('Code snippet (after)'),
+     '#default_value' => variable_get('googleanalytics_codesnippet_after', ''),
++    '#disabled' => $user_access_add_js_snippets,
+     '#rows' => 5,
+     '#wysiwyg' => FALSE,
+-    '#description' => t("Code in this textarea will be added <strong>after</strong> pageTracker._trackPageview(). This is useful if you'd like to track a site in two accounts.")
++    '#description' => t("Code in this textarea will be added <strong>after</strong> pageTracker._trackPageview(). This is useful if you'd like to track a site in two accounts.") . $user_access_add_js_snippets_permission_warning,
+   );
+ 
+   $form['advanced']['googleanalytics_js_scope'] = array(
+diff --git a/googleanalytics.info b/googleanalytics.info
+index 8c1e4eb..4749690 100644
+--- a/googleanalytics.info
++++ b/googleanalytics.info
+@@ -5,8 +5,7 @@ core = 6.x
+ package = Statistics
+ 
+ ; Information added by drupal.org packaging script on 2010-09-23
+-version = "6.x-2.3"
++version = "6.x-2.3-p1"
+ core = "6.x"
+ project = "google_analytics"
+ datestamp = "1285271163"
+-
+diff --git a/googleanalytics.module b/googleanalytics.module
+index 95756c0..12d16e5 100644
+--- a/googleanalytics.module
++++ b/googleanalytics.module
+@@ -20,7 +20,7 @@ function googleanalytics_help($path, $arg) {
+ }
+ 
+ function googleanalytics_perm() {
+-  return array('administer google analytics', 'opt-in or out of tracking', 'use PHP for tracking visibility');
++  return array('administer google analytics', 'opt-in or out of tracking', 'use PHP for tracking visibility', 'add JS snippets for google analytics');
+ }
+ 
+ function googleanalytics_menu() {
