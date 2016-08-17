@@ -1,0 +1,760 @@
+diff --git a/D6UPDATE.txt b/D6UPDATE.txt
+index 5fad7f5..d5ecbe6 100644
+--- a/D6UPDATE.txt
++++ b/D6UPDATE.txt
+@@ -49,4 +49,18 @@ Moved to CTOOLS
+ 
+ When argument plugins fail to load a context at runtime, they must now return
+ error codes instead of FALSE or NULL (previously the practice). The error codes,
+-and their respective documentation, can be found at the top of panels.module.
+\ No newline at end of file
++and their respective documentation, can be found at the top of panels.module.
++
++HANDLERS
++========
++
++Upgrading task handlers from Panels 6.x-3.12 or older:
++
++  - You must specify a storage type for any panels display using your custom task handler.
++    For examples, see panels_update_7306.
++
++  - When creating whatever stores the panel, a storage id and storage type must be defined.
++    See panels_mini.module for examples inside panels_mini_save and panels_mini_panels_cache_get.
++
++  - A display access plugin must be defined.
++    See panels_mini/plugins/panels_storage/panels_mini.inc for an example plugin.
+diff --git a/includes/plugins.inc b/includes/plugins.inc
+index 00a3847..19c4643 100644
+--- a/includes/plugins.inc
++++ b/includes/plugins.inc
+@@ -478,6 +478,31 @@ function panels_get_renderer_pipelines($sort = TRUE) {
+ }
+ 
+ /**
++ * Fetch metadata on a specific panels_storage plugin.
++ *
++ * @param $storage
++ *   Name of a panel_storage plugin.
++ *
++ * @return
++ *   An array with information about the requested panels_storage plugin
++ */
++function panels_get_panels_storage_plugin($storage) {
++  ctools_include('plugins');
++  return ctools_get_plugins('panels', 'panels_storage', $storage);
++}
++
++/**
++ * Fetch metadata for all panels_storage plugins.
++ *
++ * @return
++ *   An array of arrays with information about all available panels_storage plugins.
++ */
++function panels_get_panels_storage_plugins() {
++  ctools_include('plugins');
++  return ctools_get_plugins('panels', 'panels_storage');
++}
++
++/**
+  * Get a function from a plugin, if it exists.
+  *
+  * @param $plugin
+diff --git a/panels.info b/panels.info
+index 16ce2dd..6bf39ed 100644
+--- a/panels.info
++++ b/panels.info
+@@ -5,7 +5,7 @@ package = "Panels"
+ dependencies[] = ctools
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-25
+-version = "6.x-3.12"
++version = "6.x-3.12-p1"
+ core = "6.x"
+ project = "panels"
+ datestamp = "1456375276"
+diff --git a/panels.install b/panels.install
+index 2f2989f..0224dc2 100644
+--- a/panels.install
++++ b/panels.install
+@@ -89,10 +89,31 @@ function panels_requirements_runtime() {
+ function panels_schema() {
+   // This should always point to our 'current' schema. This makes it relatively easy
+   // to keep a record of schema as we make changes to it.
+-  return panels_schema_3();
++  return panels_schema_4();
+ }
+ 
+ /**
++ * Schema that adds the 'storage_type' and 'storage_id' columns.
++ */
++function panels_schema_4() {
++  $schema = panels_schema_3();
++
++  // Add the storage type and id columns.
++  $schema['panels_display']['fields']['storage_type'] = array(
++    'type' => 'varchar',
++    'length' => 255,
++    'default' => '',
++  );
++  $schema['panels_display']['fields']['storage_id'] = array(
++    'type' => 'varchar',
++    'length' => 255,
++    'default' => '',
++  );
++
++  return $schema;
++}
++ 
++/**
+  * Schema that adds the panels_layout table.
+  */
+ function panels_schema_3() {
+@@ -1556,3 +1577,62 @@ function panels_update_6312() {
+ 
+   return $ret;
+ }
++
++/**
++ * Add the "storage_type" and "storage_id" columns to "panels_display".
++ */
++function panels_update_6313() {
++  $schema = panels_schema_4();
++
++  $new_fields = array(
++    'panels_display' => array('storage_type', 'storage_id'),
++  );
++
++  $ret = array();
++
++  foreach ($new_fields as $table => $fields) {
++    foreach ($fields as $field_name) {
++      db_add_field($ret, $table, $field_name, $schema[$table]['fields'][$field_name]);
++    }
++  }
++
++  $ret[] = array('success' => TRUE, 'query' => t('Added the storage_type and storage_id columns.'));
++
++  return $ret;
++}
++
++/**
++ * Set the storage type and id on existing page manager panels displays.
++ */
++function panels_update_6314() {
++  $ret = array();
++
++  if (!db_table_exists('page_manager_handlers')) {
++    $ret[] = array('success' => TRUE, 'query' => t('Skipping update - page_manager is not installed.'));
++    return $ret;
++  }
++
++  // Get all page_manager_handlers that have a panels context.
++  $result = db_query("SELECT pm.name, pm.conf FROM {page_manager_handlers} pm WHERE pm.handler = 'panel_context'");
++  $page_manager_panels = array();
++  while ($row = db_fetch_object($result)) {
++    $conf = unserialize($row->conf);
++    if (isset($conf['did'])) {
++      $page_manager_panels[$conf['did']] = $row->name;
++    }
++  }
++  $dids = array_keys($page_manager_panels);
++
++  if (!empty($dids)) {
++    // Check panels displays that only have empty storage types
++    $result = db_query("SELECT pd.did FROM {panels_display} pd WHERE pd.did IN (" . db_placeholders($dids, 'int') . ") AND storage_type = ''", $dids);
++    while ($row = db_fetch_object($result)) {
++      db_query("UPDATE {panels_display} SET storage_type = '%s', storage_id = '%s' WHERE did = %d",
++        'page_manager', $page_manager_panels[$row->did], $row->did);
++    }
++  }
++
++  $ret[] = array('success' => TRUE, 'query' => t('Set storage_type and storage_id on existing page manager panels displays.'));
++
++  return $ret;
++}
+diff --git a/panels.module b/panels.module
+index da08752..4f2032e 100644
+--- a/panels.module
++++ b/panels.module
+@@ -268,6 +268,7 @@ function panels_perm() {
+     'use panels caching features',
+     'use panels dashboard',
+     'use panels in place editing',
++    'bypass access in place editing',
+   );
+ }
+ 
+@@ -414,6 +415,7 @@ function panels_ctools_style_base_types() {
+       'preview' => 'panels_stylizer_pane_preview',
+       'theme arguments' => array('settings' => NULL, 'content' => NULL, 'pane' => NULL, 'display' => NULL),
+     ),
++    'panels_storage' => array(),
+   );
+ }
+ 
+@@ -709,6 +711,55 @@ class panels_display {
+     }
+     return $output;
+   }
++
++  /**
++   * Determine if the given user can perform the requested operation.
++   *
++   * @param string $op
++   *   An operation like: create, read, update, or delete.
++   * @param object $account
++   *   (optional) The account to check access for.
++   *
++   * @return bool
++   *   TRUE if access is granted; otherwise FALSE.
++   */
++  function access($op, $account = NULL) {
++    global $user;
++
++    if (!$account) {
++      $account = $user;
++    }
++
++    // Even administrators need to go through the access system. However, to
++    // support legacy plugins, user 1 gets full access no matter what.
++    if ($account->uid == 1) {
++      return TRUE;
++    }
++
++    if (!in_array($op, array('create', 'read', 'update', 'delete', 'change layout'))) {
++      return FALSE;
++    }
++
++    if (empty($this->storage_type) || empty($this->storage_id)) {
++      return FALSE;
++    }
++
++    if ($this->storage_type == 'unknown') {
++      return FALSE;
++    }
++
++    $storage_plugin = panels_get_panels_storage_plugin($this->storage_type);
++    if (!$storage_plugin) {
++      return FALSE;
++    }
++
++    $access_callback = panels_plugin_get_function('panels_storage', $storage_plugin, 'access callback');
++    if (!$access_callback) {
++      return FALSE;
++    }
++
++    return $access_callback($this->storage_type, $this->storage_id, $op, $account);
++  }
+ }
+ 
+ /**
+@@ -1237,6 +1288,11 @@ function panels_ajax_router() {
+   ctools_include('cleanstring');
+   $renderer->clean_key = ctools_cleanstring($cache_key);
+ 
++  $op = $renderer->get_panels_storage_op_for_ajax($method);
++  if (!$cache->display->access($op)) {
++    return MENU_ACCESS_DENIED;
++  }
++
+   $output = call_user_func_array(array($renderer, $method), $args);
+   if (empty($output) && !empty($renderer->commands)) {
+     return ctools_ajax_render($renderer->commands);
+@@ -1530,6 +1586,38 @@ function panels_page_wizard_panels_cache_set($key, $cache) {
+   page_manager_set_wizard_cache($wizard_cache);
+ }
+ 
++/**
++ * Alter the page wizard basic page, when panels is selected, to inject page
++ * manager as the storage plugin for panels.
++ * @param $form
++ * @param $form_state
++ */
++function panels_form_page_manager_page_form_basic_alter(&$form, &$form_state) {
++  $form['#validate'][] = 'panels_page_manager_handler_add_validate';
++}
++
++/**
++ * Alter the variant add page, so when panels is selected, page manager is the
++ * storage plugin for panels.
++ * @param $form
++ * @param $form_state
++ */
++function panels_form_page_manager_handler_add_alter(&$form, &$form_state) {
++  $form['#validate'][] = 'panels_page_manager_handler_add_validate';
++}
++
++/**
++ * Perform the validation check to see if panel context is selected to use
++ * page manager as the storage plugin.
++ * @param $form
++ * @param $form_state
++ */
++function panels_page_manager_handler_add_validate($form, &$form_state) {
++  if($form_state['values']['handler'] == 'panel_context') {
++    $form_state['page']->storage_type = 'page_manager';
++  }
++}
++
+ // --------------------------------------------------------------------------
+ // General utility functions
+ 
+diff --git a/panels_ipe/panels_ipe.info b/panels_ipe/panels_ipe.info
+index 9f07d7e..b6969ff 100644
+--- a/panels_ipe/panels_ipe.info
++++ b/panels_ipe/panels_ipe.info
+@@ -7,7 +7,7 @@ dependencies[] = jquery_update
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-25
+-version = "6.x-3.12"
++version = "6.x-3.12-p1"
+ core = "6.x"
+ project = "panels"
+ datestamp = "1456375276"
+diff --git a/panels_ipe/plugins/display_renderers/panels_renderer_ipe.class.php b/panels_ipe/plugins/display_renderers/panels_renderer_ipe.class.php
+index 1c59544..58aa281 100644
+--- a/panels_ipe/plugins/display_renderers/panels_renderer_ipe.class.php
++++ b/panels_ipe/plugins/display_renderers/panels_renderer_ipe.class.php
+@@ -7,12 +7,44 @@ class panels_renderer_ipe extends panels_renderer_editor {
+   // The IPE operates in normal render mode, not admin mode.
+   var $admin = FALSE;
+ 
++  // Whether or not the user has access.
++  var $access = NULL;
++
++  function invoke_panels_ipe_access() {
++    if (user_access('bypass access in place editing')) {
++      return TRUE;
++    }
++    // Modules can return TRUE, FALSE or NULL, for allowed, disallowed,
++    // or don't care - respectively. On the first FALSE, we deny access,
++    // otherwise allow.
++    foreach (module_invoke_all('panels_ipe_access', $this->display) as $result) {
++      if ($result === FALSE) {
++        return FALSE;
++      }
++    }
++    return TRUE;
++  }
++
++  function access() {
++    if (is_null($this->access)) {
++      $this->access = $this->invoke_panels_ipe_access();
++    }
++    return $this->access;
++  }
++
+   function render() {
+     $output = parent::render();
+-    return "<div id='panels-ipe-display-{$this->clean_key}' class='panels-ipe-display-container'>$output</div>";
++    if ($this->access()) {
++      return "<div id='panels-ipe-display-{$this->clean_key}' class='panels-ipe-display-container'>$output</div>";
++    }
++    return $output;
+   }
+ 
+   function add_meta() {
++    if (!$this->access()) {
++      return parent::add_meta();
++    }
++
+     ctools_include('display-edit', 'panels');
+     ctools_include('content');
+ 
+@@ -57,6 +89,9 @@ class panels_renderer_ipe extends panels_renderer_editor {
+     if (empty($output)) {
+       return;
+     }
++    if (!$this->access()) {
++      return $output;
++    }
+ 
+     if (empty($pane->IPE_empty)) {
+       // Add an inner layer wrapper to the pane content before placing it into
+@@ -73,6 +108,9 @@ class panels_renderer_ipe extends panels_renderer_editor {
+ 
+   function render_pane_content(&$pane) {
+     $content = parent::render_pane_content($pane);
++    if (!$this->access()) {
++      return $output;
++    }
+     if (!is_object($content)) {
+       $content = new StdClass();
+     }
+@@ -96,6 +134,10 @@ class panels_renderer_ipe extends panels_renderer_editor {
+    * @param $panes
+    */
+   function render_region($region_id, $panes) {
++    if (!$this->access()) {
++      return parent::render_region($region_id, $panes);
++    }
++
+     // Generate this region's 'empty' placeholder pane from the IPE plugin.
+     $empty_ph = theme('panels_ipe_placeholder_pane', $region_id, $this->plugins['layout']['panels'][$region_id]);
+ 
+@@ -112,6 +154,19 @@ class panels_renderer_ipe extends panels_renderer_editor {
+     return "<div id='panels-ipe-regionid-$region_id' class='panels-ipe-region'>$output</div>";
+   }
+ 
++  function get_panels_storage_op_for_ajax($method) {
++    switch ($method) {
++      case 'ajax_unlock_ipe':
++      case 'ajax_save_form':
++        return 'update';
++      case 'ajax_change_layout':
++      case 'ajax_set_layout':
++        return 'change layout';
++    }
++
++    return parent::get_panels_storage_op_for_ajax($method);
++  }
++ 
+   /**
+    * AJAX entry point to create the controller form for an IPE.
+    */
+diff --git a/panels_mini/panels_mini.info b/panels_mini/panels_mini.info
+index f9dc092..5dd106d 100644
+--- a/panels_mini/panels_mini.info
++++ b/panels_mini/panels_mini.info
+@@ -4,7 +4,7 @@ package = "Panels"
+ dependencies[] = panels
+ core = 6.x
+ ; Information added by Drupal.org packaging script on 2016-02-25
+-version = "6.x-3.12"
++version = "6.x-3.12-p1"
+ core = "6.x"
+ project = "panels"
+ datestamp = "1456375276"
+diff --git a/panels_mini/panels_mini.install b/panels_mini/panels_mini.install
+index 3e45636..90999ab 100644
+--- a/panels_mini/panels_mini.install
++++ b/panels_mini/panels_mini.install
+@@ -183,3 +183,57 @@ function panels_mini_update_6303() {
+   db_drop_field($ret, 'panels_mini', 'title');
+   return $ret;
+ }
++
++/**
++ * Implements hook_update_dependencies().
++ */
++function panels_mini_update_dependencies() {
++  // Update 6304 requires panels storage support
++  $dependencies['panels_mini'][6304] = array(
++    'panels' => 6313,
++  );
++
++  return $dependencies;
++}
++
++/**
++ * Set the storage type and id on existing mini panels.
++ */
++function panels_mini_update_6304() {
++  if (!isset($sandbox['progress'])) {
++     // Initialize batch update information.
++     $sandbox['progress'] = (float)0;
++     $sandbox['current_did'] = -1;
++     $sandbox['max'] = db_result(db_query("SELECT COUNT(pd.did)
++         FROM {panels_display} pd
++           JOIN {panels_mini} pm ON pm.did = pd.did
++         WHERE pd.storage_type = ''"));
++   }
++
++  // Set a limit of how many rows to process per batch.
++  $limit = 1000;
++
++  // Run the query
++  $result = db_query_range("SELECT pd.did, pm.name
++      FROM {panels_display} pd
++        JOIN {panels_mini} pm ON pm.did = pd.did
++      WHERE pd.storage_type = '' AND pd.did > %d", $sandbox['current_did'], 0, $limit);
++
++  while ($row = db_fetch_object($result)) {
++    db_query("UPDATE {panels_display} SET storage_type = '%s', storage_id = '%s' WHERE did = %d",
++      'panels_mini', $row->name, $row->did);
++
++    // Update our progress information.
++    $sandbox['progress']++;
++    $sandbox['current_did'] = $row->did;
++  }
++
++  // Set the "finished" status, to tell batch engine whether this function
++  // needs to run again.
++  $sandbox['#finished'] = ($sandbox['progress'] >= $sandbox['max']) ? TRUE : ($sandbox['progress'] / $sandbox['max']);
++
++  if ($sandbox['#finished']) {
++    $ret[] = array('success' => TRUE, 'query' => t('Added the storage type for panels_mini to relevant panels displays'));
++    return $ret;
++  }
++}
+diff --git a/panels_mini/panels_mini.module b/panels_mini/panels_mini.module
+index 7b42fc4..b876663 100644
+--- a/panels_mini/panels_mini.module
++++ b/panels_mini/panels_mini.module
+@@ -205,6 +205,7 @@ function panels_mini_load_all($reset = FALSE) {
+  */
+ function panels_mini_save(&$mini) {
+   if (!empty($mini->display)) {
++    $mini->display->storage_id = $mini->name;
+     $display = panels_save_display($mini->display);
+     $mini->did = $display->did;
+   }
+@@ -254,6 +255,9 @@ function panels_mini_ctools_plugin_directory($module, $plugin) {
+   if ($module == 'ctools' && ($plugin == 'content_types' || $plugin == 'export_ui')) {
+     return 'plugins/' . $plugin;
+   }
++  if ($module == 'panels' && $plugin == 'panels_storage') {
++    return 'plugins/' . $plugin;
++  }
+ }
+ 
+ /**
+@@ -292,6 +296,9 @@ function panels_mini_panels_cache_get($key) {
+   $cache->display = $item->display;
+   $cache->display->context = ctools_context_load_contexts($item);
+   $cache->display->cache_key = 'panels_mini:' . $key;
++  $cache->display->storage_type = 'panels_mini';
++  // Temporary storage id that's replaced in panels_mini_save().
++  $cache->display->storage_id = 'panels_mini';
+   $cache->content_types = panels_common_get_allowed_types('panels_mini', $cache->display->context);
+   $cache->display_title = TRUE;
+ 
+diff --git a/panels_node/panels_node.info b/panels_node/panels_node.info
+index ad884c5..1135a35 100644
+--- a/panels_node/panels_node.info
++++ b/panels_node/panels_node.info
+@@ -6,7 +6,7 @@ core = 6.x
+ 
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-25
+-version = "6.x-3.12"
++version = "6.x-3.12-p1"
+ core = "6.x"
+ project = "panels"
+ datestamp = "1456375276"
+diff --git a/panels_node/panels_node.install b/panels_node/panels_node.install
+index b171b67..adfa570 100644
+--- a/panels_node/panels_node.install
++++ b/panels_node/panels_node.install
+@@ -59,6 +59,18 @@ function panels_node_uninstall() {
+ }
+ 
+ /**
++ * Implements hook_update_dependencies().
++ */
++function panels_node_update_dependencies() {
++  // Update 6002 requires panels storage support
++  $dependencies['panels_node'][6002] = array(
++    'panels' => 6313,
++  );
++
++  return $dependencies;
++}
++
++/**
+  * Implementation of hook_update to handle adding a pipeline
+  */
+ function panels_node_update_6001() {
+@@ -70,4 +82,46 @@ function panels_node_update_6001() {
+ 
+   db_add_field($ret, 'panels_node', 'pipeline', $field);
+   return $ret;
+-}
+\ No newline at end of file
++}
++
++/**
++ * Set the storage type and id on existing panels nodes.
++ */
++function panels_node_update_6002() {
++  if (!isset($sandbox['progress'])) {
++     // Initialize batch update information.
++     $sandbox['progress'] = (float)0;
++     $sandbox['current_did'] = -1;
++     $sandbox['max'] = db_result(db_query("SELECT COUNT(pd.did)
++         FROM {panels_display} pd
++           JOIN {panels_node} pn ON pn.did = pd.did
++         WHERE pd.storage_type = ''"));
++   }
++
++  // Set a limit of how many rows to process per batch.
++  $limit = 1000;
++
++  // Run the query
++  $result = db_query_range("SELECT pd.did, pn.nid
++      FROM {panels_display} pd
++        JOIN {panels_node} pn ON pn.did = pd.did
++      WHERE pd.storage_type = '' AND pd.did > %d", $sandbox['current_did'], 0, $limit);
++
++  while ($row = db_fetch_object($result)) {
++    db_query("UPDATE {panels_display} SET storage_type = '%s', storage_id = '%s' WHERE did = %d",
++      'panels_node', $row->nid, $row->did);
++
++    // Update our progress information.
++    $sandbox['progress']++;
++    $sandbox['current_did'] = $row->did;
++  }
++
++  // Set the "finished" status, to tell batch engine whether this function
++  // needs to run again.
++  $sandbox['#finished'] = ($sandbox['progress'] >= $sandbox['max']) ? TRUE : ($sandbox['progress'] / $sandbox['max']);
++
++  if ($sandbox['#finished']) {
++    $ret[] = array('success' => TRUE, 'query' => t('Added the storage type for panels_node to relevant panels displays'));
++    return $ret;
++  }
++}
+diff --git a/panels_node/panels_node.module b/panels_node/panels_node.module
+index ffd2693..91aa9b8 100644
+--- a/panels_node/panels_node.module
++++ b/panels_node/panels_node.module
+@@ -20,6 +20,15 @@ function panels_node_perm() {
+ }
+ 
+ /**
++ * Implementation of hook_ctools_plugin_directory().
++ */
++function panels_node_ctools_plugin_directory($module, $plugin) {
++  if ($module == 'panels' && $plugin == 'panels_storage') {
++    return 'plugins/' . $plugin;
++  }
++}
++
++/**
+  * Implementation of hook_menu().
+  */
+ function panels_node_menu() {
+@@ -253,6 +262,8 @@ function panels_node_insert(&$node) {
+   // Create a new display and record that.
+   $display = panels_new_display();
+   $display->layout = $node->panels_node['layout'];
++  $display->storage_type = 'panels_node';
++  $display->storage_id = $node->nid;
+ 
+   // Special handling for nodes being imported from an export.module data dump.
+   if (!empty($node->export_display)) {
+@@ -335,6 +346,19 @@ function panels_node_settings() {
+   return drupal_get_form('panels_common_settings', 'panels_node');
+ }
+ 
++/**
++ * Implements hook_panels_ipe_access().
++ */
++function panels_node_panels_ipe_access($display) {
++  // We only care about Panels displays from panels_node.
++  if (isset($display->context['panel-node'])) {
++    // Only allow access to use the IPE if the user has 'update' access to
++    // the underlying node.
++    $node = $display->context['panel-node']->data;
++    return node_access('update', $node); 
++  }
++}
++
+ // ---------------------------------------------------------------------------
+ // Meat of the Panels API; almost completely passing through to panels.module
+ 
+diff --git a/plugins/display_renderers/panels_renderer_editor.class.php b/plugins/display_renderers/panels_renderer_editor.class.php
+index 0ca2146..5e0fc23 100644
+--- a/plugins/display_renderers/panels_renderer_editor.class.php
++++ b/plugins/display_renderers/panels_renderer_editor.class.php
+@@ -471,6 +471,40 @@ class panels_renderer_editor extends panels_renderer_standard {
+   }
+ 
+   /**
++   * Get the Panels storage oparation for a given renderer AJAX method.
++   *
++   * @param string $method
++   *   The method name.
++   *
++   * @return string
++   *   The Panels storage op.
++   */
++  function get_panels_storage_op_for_ajax($method) {
++    switch ($method) {
++      case 'ajax_show':
++      case 'ajax_hide':
++      case 'ajax_select_content':
++      case 'ajax_add_pane':
++      case 'ajax_edit_pane':
++      case 'ajax_panel_title':
++      case 'ajax_cache_method':
++      case 'ajax_cache_settings':
++      case 'ajax_style_type':
++      case 'ajax_style_settings':
++      case 'ajax_pane_css':
++      case 'ajax_lock':
++      case 'ajax_access_settings':
++      case 'ajax_access_add_test':
++      case 'ajax_access_configure_test':
++      case 'ajax_layout':
++      case 'ajax_style':
++        return 'update';
++    }
++
++    return parent::get_panels_storage_op($method);
++  }
++
++  /**
+    * AJAX command to show a pane.
+    */
+   function ajax_show($pid = NULL) {
+diff --git a/plugins/display_renderers/panels_renderer_standard.class.php b/plugins/display_renderers/panels_renderer_standard.class.php
+index bf01b6a..be65d52 100644
+--- a/plugins/display_renderers/panels_renderer_standard.class.php
++++ b/plugins/display_renderers/panels_renderer_standard.class.php
+@@ -177,6 +177,19 @@ class panels_renderer_standard {
+   }
+ 
+   /**
++   * Get the Panels storage oparation for a given renderer AJAX method.
++   *
++   * @param string $method
++   *   The method name.
++   *
++   * @return string
++   *   The Panels storage op.
++   */
++  function get_panels_storage_op_for_ajax($method) {
++    return 'read';
++  }
++
++  /**
+    * Prepare the attached display for rendering.
+    *
+    * This is the outermost prepare method. It calls several sub-methods as part
+diff --git a/plugins/task_handlers/panel_context.inc b/plugins/task_handlers/panel_context.inc
+index 2dccdc7..99664ea 100644
+--- a/plugins/task_handlers/panel_context.inc
++++ b/plugins/task_handlers/panel_context.inc
+@@ -541,6 +541,19 @@ function panels_panel_context_edit_choose(&$form, &$form_state) {
+ 
+   $form_state['display'] = &panels_panel_context_get_display($form_state['handler']);
+ 
++  // Grab the storage_type and storage_id and inject it into the display.
++  if (empty($form_state['display']->storage_type)) {
++    if (!isset($form_state[$form_state['task_id']]->storage_type)) {
++      watchdog('panels', "Unable to find the storage type for specified storage. Read 'Upgrading task handlers' in CHANGELOG.txt", array(), WATCHDOG_ERROR);
++      $form_state['display']->storage_type = 'unknown';
++    }
++    else {
++      $form_state['display']->storage_type = $form_state[$form_state['task_id']]->storage_type;
++    }
++    // When adding variants, we don't know the handler id yet. In that case,
++    // Mark it as new. We'll assign it later.
++    $form_state['display']->storage_id = !empty($form_state['handler_id']) ? $form_state['handler_id'] : 'new';
++  }
+   // Tell the Panels form not to display buttons.
+   $form_state['no buttons'] = TRUE;
+ 
+@@ -685,6 +698,10 @@ function panels_panel_context_edit_content(&$form, &$form_state) {
+ }
+ 
+ function panels_panel_context_edit_content_submit(&$form, &$form_state) {
++  // Update the storage_id if this is a new variant before saving.
++  if ($form_state['display']->storage_id == 'new') {
++    $form_state['display']->storage_id = $form_state['handler_id'];
++  }
+   panels_edit_display_form_submit($form, $form_state);
+   $handler = &$form_state['handler'];
+ 
