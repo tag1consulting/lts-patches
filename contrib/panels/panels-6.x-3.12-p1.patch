@@ -1,5 +1,5 @@
 diff --git a/D6UPDATE.txt b/D6UPDATE.txt
-index 5fad7f5..d5ecbe6 100644
+index 5fad7f5..5bfc104 100644
 --- a/D6UPDATE.txt
 +++ b/D6UPDATE.txt
 @@ -49,4 +49,18 @@ Moved to CTOOLS
@@ -16,7 +16,7 @@ index 5fad7f5..d5ecbe6 100644
 +Upgrading task handlers from Panels 6.x-3.12 or older:
 +
 +  - You must specify a storage type for any panels display using your custom task handler.
-+    For examples, see panels_update_7306.
++    For examples, see panels_update_6314.
 +
 +  - When creating whatever stores the panel, a storage id and storage type must be defined.
 +    See panels_mini.module for examples inside panels_mini_save and panels_mini_panels_cache_get.
