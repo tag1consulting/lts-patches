@@ -1,0 +1,130 @@
+diff --git a/migration/views_data_export_migration.info b/migration/views_data_export_migration.info
+index 842d9ad..8662213 100644
+--- a/migration/views_data_export_migration.info
++++ b/migration/views_data_export_migration.info
+@@ -5,7 +5,7 @@ core = 6.x
+ dependencies[] = views_data_export
+ dependencies[] = views_bonus_export
+ ; Information added by drupal.org packaging script on 2011-07-01
+-version = "6.x-3.0-beta5"
++version = "6.x-3.0-beta5-p1"
+ core = "6.x"
+ project = "views_data_export"
+ datestamp = "1309549920"
+diff --git a/plugins/views_data_export_plugin_display_export.inc b/plugins/views_data_export_plugin_display_export.inc
+index 8019b67..ec6ef3f 100644
+--- a/plugins/views_data_export_plugin_display_export.inc
++++ b/plugins/views_data_export_plugin_display_export.inc
+@@ -320,6 +320,9 @@ class views_data_export_plugin_display_export extends views_plugin_display_feed
+         break;
+ 
+       case VIEWS_DATA_EXPORT_FOOTER:
++        // Update the temporary file size, otherwise we would get a problematic
++        // "Content-Length: 0" HTTP header, that may break the export download.
++        $this->outputfile_update_size();
+         $sandbox['finished'] = 1;
+         $state->batch_state = VIEWS_DATA_EXPORT_FINISHED;
+         break;
+@@ -478,9 +481,26 @@ class views_data_export_plugin_display_export extends views_plugin_display_feed
+     if (!$this->view->init_style()) {
+       $this->view->build_info['fail'] = TRUE;
+     }
+-    // Set the headers.
+-    $this->add_http_headers();
+-    file_transfer($this->outputfile_path(), array());
++    $uri = $this->outputfile_path();
++    if (file_exists($uri)) {
++      $headers = file_download_headers($uri);
++      if (count($headers)) {
++        // Set our headers and ensure no other one conflicts with them.
++        $this->add_http_headers();
++        $reserved_headers = array_flip(array('content-type', 'cache-control', 'content-disposition'));
++        foreach ($headers as $name => $value) {
++          if (isset($reserved_headers[drupal_strtolower($name)])) {
++            unset($headers[$name]);
++          }
++        }
++        file_transfer($uri, $headers);
++      }
++      drupal_access_denied();
++    }
++    else {
++      drupal_not_found();
++    }
++    drupal_exit();
+   }
+ 
+   /**
+@@ -613,6 +633,18 @@ class views_data_export_plugin_display_export extends views_plugin_display_feed
+     }
+   }
+ 
++  /**
++   * Updates the file size in the file entity.
++   */
++  protected function outputfile_update_size() {
++    $output_file = $this->outputfile_path();
++    $file = db_fetch_object(db_query("SELECT * FROM {files} WHERE filepath = '%s'", array('%s' => $output_file)));
++    if ($file) {
++      $file->filesize = filesize($output_file);
++      db_query('UPDATE {files} SET filesize = %d WHERE fid = %d', $file->filesize, $file->fid);
++    }
++  }
++
+   function abort_export($errors) {
+     // Just cause the next batch to do the clean-up
+     if (!is_array($errors)) {
+diff --git a/views_data_export.info b/views_data_export.info
+index 192f904..596f91d 100644
+--- a/views_data_export.info
++++ b/views_data_export.info
+@@ -5,7 +5,7 @@ package = Views
+ core = 6.x
+ 
+ ; Information added by drupal.org packaging script on 2011-07-01
+-version = "6.x-3.0-beta5"
++version = "6.x-3.0-beta5-p1"
+ core = "6.x"
+ project = "views_data_export"
+ datestamp = "1309549920"
+diff --git a/views_data_export.module b/views_data_export.module
+index 2022087..7590bd9 100644
+--- a/views_data_export.module
++++ b/views_data_export.module
+@@ -31,6 +31,36 @@ function views_data_export_views_api() {
+ }
+ 
+ /**
++ * Implements hook_file_download().
++ */
++function views_data_export_file_download($filepath) {
++  if (views_data_export_is_export_file($filepath)) {
++    $result = -1;
++    // Allow only owners to access export files.
++    $file = db_fetch_object(db_query("SELECT * FROM {files} WHERE filepath = '%s'", array('%s' => $filepath)));
++    if ($file && $file->uid == $GLOBALS['user']->uid) {
++      // This is only necessary for file_download_headers() to return a result
++      // evaluating to TRUE, in case no other module added any header.
++      $result = array('X-Drupal-ViewsDataExport' => 1);
++    }
++    return $result;
++  }
++}
++
++/**
++ * Checks whether the passed URI identifies an export file.
++ *
++ * @param string $filepath
++ *   A filepath.
++ *
++ * @return bool
++ *   TRUE if the filepath identifies an export file, FALSE otherwise.
++ */
++function views_data_export_is_export_file($filepath) {
++  return strpos($filepath, file_directory_temp() . '/views_plugin_display') === 0;
++}
++
++/**
+  * Implementation of hook_theme().
+  */
+ function views_data_export_theme() {
