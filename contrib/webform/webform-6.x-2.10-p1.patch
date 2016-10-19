@@ -1,0 +1,62 @@
+diff --git a/webform.info b/webform.info
+index f4d5ab3..16abbf2 100644
+--- a/webform.info
++++ b/webform.info
+@@ -4,7 +4,7 @@ description = Enables the creation of forms and questionnaires.
+ core = 6.x
+ 
+ ; Information added by drupal.org packaging script on 2010-08-14
+-version = "6.x-2.10"
++version = "6.x-2.10-p1"
+ core = "6.x"
+ project = "webform"
+ datestamp = "1281827494"
+diff --git a/webform.module b/webform.module
+index 84656c3..365eda7 100644
+--- a/webform.module
++++ b/webform.module
+@@ -452,12 +452,30 @@ function webform_forms($form_id) {
+  *
+  * Only allow users with view webform submissions to download files.
+  */
+-function webform_file_download($file) {
+-  $file = file_check_location(file_directory_path() .'/'. $file, file_directory_path() .'/webform/');
+-  if ($file && user_access('access webform results')) {
+-    $info = image_get_info(file_create_path($file));
++function webform_file_download($filepath) {
++
++  // If the Webform directory doesn't exist, don't attempt to deliver a file.
++  $webform_directory = file_directory_path() . '/webform/';
++  if (!is_dir($webform_directory)) {
++    return;
++  }
++
++  // If this file isn't in the Webform directory, don't deliver a file.
++  $filepath = file_directory_path() . '/' . $filepath;
++  if (!file_check_location($filepath, $webform_directory)) {
++    return;
++  }
++
++  // If we can't load the file object for this file, don't deliver a file.
++  $file = db_fetch_object(db_query("SELECT * FROM {files} WHERE filepath = '%s'", $filepath));
++  if (!$file) {
++    return;
++  }
++
++  if (user_access('access webform results')) {
++    $info = image_get_info(file_create_path($filepath));
+     if (isset($info['mime_type'])) {
+-      $headers = array('Content-type: '. $info['mime_type']);
++      $headers = array('Content-type: ' . $info['mime_type']);
+     }
+     else {
+       $headers = array(
+@@ -467,6 +485,8 @@ function webform_file_download($file) {
+     }
+     return $headers;
+   }
++
++  return -1;
+ }
+ 
+ /**

@@ -1,0 +1,60 @@
+diff --git a/webform.info b/webform.info
+index bd92240..f777c35 100644
+--- a/webform.info
++++ b/webform.info
+@@ -6,8 +6,7 @@ package = Webform
+ php = 5.1
+ 
+ ; Information added by Drupal.org packaging script on 2015-03-17
+-version = "6.x-3.23"
++version = "6.x-3.23-p1"
+ core = "6.x"
+ project = "webform"
+ datestamp = "1426611474"
+-
+diff --git a/webform.module b/webform.module
+index de3b0c1..93e649e 100644
+--- a/webform.module
++++ b/webform.module
+@@ -914,7 +914,7 @@ function webform_webform_submission_render_alter(&$renderable) {
+  *
+  * Only allow users with view webform submissions to download files.
+  */
+-function webform_file_download($file) {
++function webform_file_download($filepath) {
+   global $user;
+ 
+   // If the Webform directory doesn't exist, don't attempt to deliver a file.
+@@ -923,9 +923,20 @@ function webform_file_download($file) {
+     return;
+   }
+ 
+-  $file = file_check_location(file_directory_path() . '/' . $file, $webform_directory);
+-  if ($file && (user_access('access all webform results') || user_access('access own webform results'))) {
+-    $info = image_get_info(file_create_path($file));
++  // If this file isn't in the Webform directory, don't deliver a file.
++  $filepath = file_directory_path() . '/' . $filepath;
++  if (!file_check_location($filepath, $webform_directory)) {
++    return;
++  }
++
++  // If we can't load the file object for this file, don't deliver a file.
++  $file = db_fetch_object(db_query("SELECT * FROM {files} WHERE filepath = '%s'", $filepath));
++  if (!$file) {
++    return;
++  }
++
++  if (user_access('access all webform results') || ($file->uid == $user->uid && user_access('access own webform results'))) {
++    $info = image_get_info(file_create_path($filepath));
+     if (isset($info['mime_type'])) {
+       $headers = array('Content-type: ' . $info['mime_type']);
+     }
+@@ -937,6 +948,8 @@ function webform_file_download($file) {
+     }
+     return $headers;
+   }
++
++  return -1;
+ }
+ 
+ /**
