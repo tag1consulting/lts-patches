@@ -12,6 +12,19 @@ index 0a22506..16a53df 100644
  project = "flag"
  datestamp = "1358153523"
 -
+diff --git a/flag_actions.info b/flag_actions.info
+index e8b33bc..d33716e 100644
+--- a/flag_actions.info
++++ b/flag_actions.info
+@@ -4,7 +4,7 @@ core = 6.x
+ dependencies[] = flag
+ package = Flags
+ ; Information added by drupal.org packaging script on 2013-01-14
+-version = "6.x-1.5"
++version = "6.x-1.5-p1"
+ core = "6.x"
+ project = "flag"
+ datestamp = "1358153523"
 diff --git a/includes/flag.views.inc b/includes/flag.views.inc
 index cba81ac..2adf8ba 100644
 --- a/includes/flag.views.inc
