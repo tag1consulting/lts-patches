@@ -1,0 +1,59 @@
+diff --git a/views_send.info b/views_send.info
+index c2bafa3..4b7a71b 100644
+--- a/views_send.info
++++ b/views_send.info
+@@ -5,7 +5,7 @@ package = Views
+ core = 6.x
+ 
+ ; Information added by drupal.org packaging script on 2013-10-24
+-version = "6.x-1.0-rc1"
++version = "6.x-1.0-rc1-p1"
+ core = "6.x"
+ project = "views_send"
+ datestamp = "1382601936"
+diff --git a/views_send.module b/views_send.module
+index 6b681c0..9b07b57 100644
+--- a/views_send.module
++++ b/views_send.module
+@@ -469,7 +469,9 @@ function views_send_form_alter(&$form, &$form_state, $form_id) {
+     $form['from'] = array(
+       '#type' => 'item',
+       '#title' => t('From'),
+-      '#value' => '<div class="views-send-preview-value">'. (empty($args['views_send_from_name']) ? $args['views_send_from_mail'] : $args['views_send_from_name'] . check_plain(' <'. $args['views_send_from_mail'] .'>')) .'</div>',
++      '#value' => '<div class="views-send-preview-value">'.
++        check_plain(empty($args['views_send_from_name']) ? $args['views_send_from_mail'] : $args['views_send_from_name'] . ' <' . $args['views_send_from_mail'] . '>') .
++        '</div>',
+     );
+ 
+     $recipients = array();
+@@ -495,10 +497,10 @@ function views_send_form_alter(&$form, &$form_state, $form_id) {
+     $form['subject'] = array(
+       '#type' => 'item',
+       '#title' => t('Subject'),
+-      '#value' => '<div class="views-send-preview-value">'. $args['views_send_subject'] .'</div>',
++      '#value' => '<div class="views-send-preview-value">'. check_plain($args['views_send_subject']) .'</div>',
+     );
+     if ($args['views_send_message_format'] == VIEWS_SEND_FORMAT_PLAIN) {
+-      $message = '<div style="white-space: pre;">' . $args['views_send_message'] . '</div>';
++      $message = '<div style="white-space: pre;">' . check_plain($args['views_send_message']) . '</div>';
+     }
+     else {
+       $message = check_markup($args['views_send_message'], $args['views_send_message_format']);
+@@ -511,7 +513,7 @@ function views_send_form_alter(&$form, &$form_state, $form_id) {
+ 
+     $headers = array();
+     foreach (_views_send_headers($args['views_send_receipt'], $args['views_send_priority'], $args['views_send_from_mail'], $args['views_send_headers']) as $key => $value) {
+-      $headers[] = $key .': '. $value;
++      $headers[] = check_plain($key .': '. $value);
+     }
+ 
+     $form['headers'] = array(
+@@ -522,7 +524,7 @@ function views_send_form_alter(&$form, &$form_state, $form_id) {
+ 
+     if (VIEWS_SEND_MIMEMAIL && !empty($args['views_send_attachments']) && user_access('allow attachments with views_send')) {
+       foreach ($args['views_send_attachments'] as $attachment) {
+-        $attachments[] = $attachment['filename'];
++        $attachments[] = check_plain($attachment['filename']);
+       }
+       $form['attachments'] = array(
+         '#type' => 'item',
