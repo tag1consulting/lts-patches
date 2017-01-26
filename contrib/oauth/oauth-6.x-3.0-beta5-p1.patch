@@ -1,0 +1,40 @@
+diff --git a/lib/OAuth.php b/lib/OAuth.php
+index 762db3f..9cdb243 100644
+--- a/lib/OAuth.php
++++ b/lib/OAuth.php
+@@ -54,7 +54,8 @@ class OAuthToken {
+     return "oauth_token=" .
+            OAuthUtil::urlencode_rfc3986($this->key) .
+            "&oauth_token_secret=" .
+-           OAuthUtil::urlencode_rfc3986($this->secret);
++           OAuthUtil::urlencode_rfc3986($this->secret) .
++           "&oauth_callback_confirmed=true";
+   }
+ 
+   function __toString() {
+diff --git a/oauth_common.info b/oauth_common.info
+index 0f3d84b..9e5db2e 100644
+--- a/oauth_common.info
++++ b/oauth_common.info
+@@ -19,7 +19,7 @@ files[] = includes/DrupalOAuthClient.inc
+ files[] = includes/OAuthSignatureMethod_HMAC.inc
+ 
+ ; Information added by Drupal.org packaging script on 2014-03-07
+-version = "6.x-3.0-beta5"
++version = "6.x-3.0-beta5-p1"
+ core = "6.x"
+ project = "oauth"
+ datestamp = "1394221372"
+diff --git a/oauth_common_providerui.info b/oauth_common_providerui.info
+index f3f4665..808a9ad 100644
+--- a/oauth_common_providerui.info
++++ b/oauth_common_providerui.info
+@@ -8,7 +8,7 @@ core = 6.x
+ php = 5.2
+ 
+ ; Information added by Drupal.org packaging script on 2014-03-07
+-version = "6.x-3.0-beta5"
++version = "6.x-3.0-beta5-p1"
+ core = "6.x"
+ project = "oauth"
+ datestamp = "1394221372"
