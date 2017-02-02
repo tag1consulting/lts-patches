@@ -1,0 +1,44 @@
+diff --git a/better_exposed_filters.info b/better_exposed_filters.info
+index 61eff7f..ec2e5a1 100644
+--- a/better_exposed_filters.info
++++ b/better_exposed_filters.info
+@@ -3,15 +3,9 @@ description = Allow the use of checkboxes or radio buttons for exposed Views fil
+ core = 6.x
+ package = Views
+ dependencies[] = views
+-; Information added by drupal.org packaging script on 2011-02-25
+-version = "6.x-1.x-dev"
+-core = "6.x"
+-project = "better_exposed_filters"
+-datestamp = "1298618880"
+-
+ 
+ ; Information added by drupal.org packaging script on 2011-06-09
+-version = "6.x-2.0-beta1"
++version = "6.x-2.0-beta1-p1"
+ core = "6.x"
+ project = "better_exposed_filters"
+ datestamp = "1307589414"
+diff --git a/better_exposed_filters_exposed_form_plugin.inc b/better_exposed_filters_exposed_form_plugin.inc
+index e9e6f71..e4ce510 100644
+--- a/better_exposed_filters_exposed_form_plugin.inc
++++ b/better_exposed_filters_exposed_form_plugin.inc
+@@ -381,9 +381,9 @@ class better_exposed_filters_exposed_form_plugin extends views_plugin_exposed_fo
+               
+               // Pass the description and title along in a way such that it doesn't get rendered as part of
+               // the exposed form widget.  We'll render them as part of the fieldset.
+-              $form[$field_id]['#bef_description'] = $form[$field_id]['#description'];
++              $form[$field_id]['#bef_description'] = filter_xss_admin($form[$field_id]['#description']);
+               unset($form[$field_id]['#description']);
+-              $form[$field_id]['#bef_title'] = $form[$field_id]['#title'];
++              $form[$field_id]['#bef_title'] = check_plain($form[$field_id]['#title']);
+               unset($form[$field_id]['#title']);
+               
+               // Take care of adding the fieldset in the theme layer
+@@ -444,4 +444,4 @@ class better_exposed_filters_exposed_form_plugin extends views_plugin_exposed_fo
+     $form['submit']['#access'] = $show_apply;
+ 
+   }         // function exposed_form_alter(...)
+-}
+\ No newline at end of file
++}

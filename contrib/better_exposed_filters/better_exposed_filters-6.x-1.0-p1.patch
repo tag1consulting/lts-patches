@@ -1,0 +1,33 @@
+diff --git a/better_exposed_filters.info b/better_exposed_filters.info
+index 2c872e4..3d4e5a9 100644
+--- a/better_exposed_filters.info
++++ b/better_exposed_filters.info
+@@ -5,7 +5,7 @@ core = 6.x
+ package = Views
+ dependencies[] = views
+ ; Information added by drupal.org packaging script on 2010-05-25
+-version = "6.x-1.0"
++version = "6.x-1.0-p1"
+ core = "6.x"
+ project = "better_exposed_filters"
+ datestamp = "1274810407"
+diff --git a/better_exposed_filters_exposed_form_plugin.inc b/better_exposed_filters_exposed_form_plugin.inc
+index 30d888f..930ad24 100644
+--- a/better_exposed_filters_exposed_form_plugin.inc
++++ b/better_exposed_filters_exposed_form_plugin.inc
+@@ -123,7 +123,7 @@ class better_exposed_filters_exposed_form_plugin extends views_plugin_exposed_fo
+ 
+       // Add a description to the exposed filter
+       if (!empty($options['more_options']['bef_filter_description'])) {
+-        $form[$field_id]['#description'] = $options['more_options']['bef_filter_description'];
++        $form[$field_id]['#description'] = filter_xss_admin($options['more_options']['bef_filter_description']);
+       } 
+         
+       switch ($options['bef_format']) {
+@@ -182,4 +182,4 @@ class better_exposed_filters_exposed_form_plugin extends views_plugin_exposed_fo
+       }     // switch ($options['bef_format'])
+     }       // foreach ($this->options['bef']...)
+   }         // function exposed_form_alter(...)
+-}
+\ No newline at end of file
++}
