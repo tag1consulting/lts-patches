@@ -1,5 +1,5 @@
 diff --git a/modules/taxonomy/views_handler_argument_term_node_tid.inc b/modules/taxonomy/views_handler_argument_term_node_tid.inc
-index aead304..fc75a46 100644
+index aead304..430a70a 100644
 --- a/modules/taxonomy/views_handler_argument_term_node_tid.inc
 +++ b/modules/taxonomy/views_handler_argument_term_node_tid.inc
 @@ -40,7 +40,7 @@ class views_handler_argument_term_node_tid extends views_handler_argument_many_t
@@ -7,12 +7,12 @@ index aead304..fc75a46 100644
      $placeholders = implode(', ', array_fill(0, sizeof($this->value), '%d'));
  
 -    $result = db_query("SELECT name FROM {term_data} WHERE tid IN ($placeholders)", $this->value);
-+    $result = db_query(db_rewrite_sql("SELECT name FROM {term_data} td WHERE tid IN ($placeholders)", 'td', 'tid'), $this->value);
++    $result = db_query(db_rewrite_sql("SELECT name FROM {term_data} td WHERE td.tid IN ($placeholders)", 'td', 'tid', array($this->value)), $this->value);
      while ($term = db_fetch_object($result)) {
        $titles[] = check_plain($term->name);
      }
 diff --git a/modules/taxonomy/views_handler_filter_term_node_tid.inc b/modules/taxonomy/views_handler_filter_term_node_tid.inc
-index 255fe8e..7ef6e8f 100644
+index 255fe8e..90d8a2c 100644
 --- a/modules/taxonomy/views_handler_filter_term_node_tid.inc
 +++ b/modules/taxonomy/views_handler_filter_term_node_tid.inc
 @@ -274,7 +274,7 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
@@ -20,12 +20,12 @@ index 255fe8e..7ef6e8f 100644
      $args[] = $this->options['vid'];
  
 -    $result = db_query("SELECT * FROM {term_data} td WHERE td.name IN (" . implode(', ', $placeholders) . ") AND td.vid = %d", $args);
-+    $result = db_query(db_rewrite_sql("SELECT * FROM {term_data} td WHERE td.name IN (" . implode(', ', $placeholders) . ") AND td.vid = %d", 'td', 'tid'), $args);
++    $result = db_query(db_rewrite_sql("SELECT * FROM {term_data} td WHERE td.name IN (" . implode(', ', $placeholders) . ") AND td.vid = %d", 'td', 'tid', $args), $args);
      while ($term = db_fetch_object($result)) {
        unset($missing[strtolower($term->name)]);
        $tids[] = $term->tid;
 diff --git a/modules/taxonomy/views_plugin_argument_validate_taxonomy_term.inc b/modules/taxonomy/views_plugin_argument_validate_taxonomy_term.inc
-index febc17d..41e3f47 100644
+index febc17d..e694bef 100644
 --- a/modules/taxonomy/views_plugin_argument_validate_taxonomy_term.inc
 +++ b/modules/taxonomy/views_plugin_argument_validate_taxonomy_term.inc
 @@ -76,7 +76,7 @@ class views_plugin_argument_validate_taxonomy_term extends views_plugin_argument
@@ -33,7 +33,7 @@ index febc17d..41e3f47 100644
          }
  
 -        $result = db_fetch_object(db_query("SELECT * FROM {term_data} WHERE tid = %d", $argument));
-+        $result = db_fetch_object(db_query(db_rewrite_sql("SELECT * FROM {term_data} td WHERE tid = %d", 'td', 'tid'),  $argument));
++        $result = db_fetch_object(db_query(db_rewrite_sql("SELECT * FROM {term_data} td WHERE td.tid = %d", 'td', 'tid', array($argument)),  $argument));
          if (!$result) {
            return FALSE;
          }
@@ -42,7 +42,7 @@ index febc17d..41e3f47 100644
            $placeholders = implode(', ', array_fill(0, count($test), '%d'));
  
 -          $result = db_query("SELECT * FROM {term_data} WHERE tid IN ($placeholders)", $test);
-+          $result = db_query(db_rewrite_sql("SELECT * FROM {term_data} td WHERE tid IN ($placeholders)", 'td', 'tid'), $test);
++          $result = db_query(db_rewrite_sql("SELECT * FROM {term_data} td WHERE td.tid IN ($placeholders)", 'td', 'tid', array($test)), $test);
            while ($term = db_fetch_object($result)) {
              if ($vids && empty($vids[$term->vid])) {
                $validated_cache[$term->tid] = FALSE;
@@ -51,11 +51,11 @@ index febc17d..41e3f47 100644
          }
          if ($transform) {
 -          $result = db_fetch_object(db_query("SELECT td.* FROM {term_data} td LEFT JOIN {term_synonym} ts ON ts.tid = td.tid WHERE (replace(td.name, ' ', '-') = '%s' OR replace(ts.name, ' ', '-') = '%s')$and", $argument, $argument));
-+          $result = db_fetch_object(db_query(db_rewrite_sql("SELECT td.* FROM {term_data} td LEFT JOIN {term_synonym} ts ON ts.tid = td.tid WHERE (replace(td.name, ' ', '-') = '%s' OR replace(ts.name, ' ', '-') = '%s')$and", 'td', 'tid'), $argument, $argument));
++          $result = db_fetch_object(db_query(db_rewrite_sql("SELECT td.* FROM {term_data} td LEFT JOIN {term_synonym} ts ON ts.tid = td.tid WHERE (replace(td.name, ' ', '-') = '%s' OR replace(ts.name, ' ', '-') = '%s')$and", 'td', 'tid', array($argument, $argument)), $argument, $argument));
          }
          else {
 -          $result = db_fetch_object(db_query("SELECT td.* FROM {term_data} td LEFT JOIN {term_synonym} ts ON ts.tid = td.tid WHERE (td.name = '%s' OR ts.name = '%s')$and", $argument, $argument));
-+          $result = db_fetch_object(db_query(db_rewrite_sql("SELECT td.* FROM {term_data} td LEFT JOIN {term_synonym} ts ON ts.tid = td.tid WHERE (td.name = '%s' OR ts.name = '%s')$and", 'td', 'tid'), $argument, $argument));
++          $result = db_fetch_object(db_query(db_rewrite_sql("SELECT td.* FROM {term_data} td LEFT JOIN {term_synonym} ts ON ts.tid = td.tid WHERE (td.name = '%s' OR ts.name = '%s')$and", 'td', 'tid', array($argument, $argument)), $argument, $argument));
          }
          if (!$result) {
            return FALSE;
