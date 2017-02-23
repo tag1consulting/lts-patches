@@ -1,0 +1,100 @@
+diff --git a/modules/taxonomy/views_handler_argument_term_node_tid.inc b/modules/taxonomy/views_handler_argument_term_node_tid.inc
+index aead304..fc75a46 100644
+--- a/modules/taxonomy/views_handler_argument_term_node_tid.inc
++++ b/modules/taxonomy/views_handler_argument_term_node_tid.inc
+@@ -40,7 +40,7 @@ class views_handler_argument_term_node_tid extends views_handler_argument_many_t
+     $titles = array();
+     $placeholders = implode(', ', array_fill(0, sizeof($this->value), '%d'));
+ 
+-    $result = db_query("SELECT name FROM {term_data} WHERE tid IN ($placeholders)", $this->value);
++    $result = db_query(db_rewrite_sql("SELECT name FROM {term_data} td WHERE tid IN ($placeholders)", 'td', 'tid'), $this->value);
+     while ($term = db_fetch_object($result)) {
+       $titles[] = check_plain($term->name);
+     }
+diff --git a/modules/taxonomy/views_handler_filter_term_node_tid.inc b/modules/taxonomy/views_handler_filter_term_node_tid.inc
+index 255fe8e..7ef6e8f 100644
+--- a/modules/taxonomy/views_handler_filter_term_node_tid.inc
++++ b/modules/taxonomy/views_handler_filter_term_node_tid.inc
+@@ -274,7 +274,7 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
+     // add the taxonomy vid to the argument list.
+     $args[] = $this->options['vid'];
+ 
+-    $result = db_query("SELECT * FROM {term_data} td WHERE td.name IN (" . implode(', ', $placeholders) . ") AND td.vid = %d", $args);
++    $result = db_query(db_rewrite_sql("SELECT * FROM {term_data} td WHERE td.name IN (" . implode(', ', $placeholders) . ") AND td.vid = %d", 'td', 'tid'), $args);
+     while ($term = db_fetch_object($result)) {
+       unset($missing[strtolower($term->name)]);
+       $tids[] = $term->tid;
+diff --git a/modules/taxonomy/views_plugin_argument_validate_taxonomy_term.inc b/modules/taxonomy/views_plugin_argument_validate_taxonomy_term.inc
+index febc17d..41e3f47 100644
+--- a/modules/taxonomy/views_plugin_argument_validate_taxonomy_term.inc
++++ b/modules/taxonomy/views_plugin_argument_validate_taxonomy_term.inc
+@@ -76,7 +76,7 @@ class views_plugin_argument_validate_taxonomy_term extends views_plugin_argument
+           return FALSE;
+         }
+ 
+-        $result = db_fetch_object(db_query("SELECT * FROM {term_data} WHERE tid = %d", $argument));
++        $result = db_fetch_object(db_query(db_rewrite_sql("SELECT * FROM {term_data} td WHERE tid = %d", 'td', 'tid'),  $argument));
+         if (!$result) {
+           return FALSE;
+         }
+@@ -119,7 +119,7 @@ class views_plugin_argument_validate_taxonomy_term extends views_plugin_argument
+         if (count($test)) {
+           $placeholders = implode(', ', array_fill(0, count($test), '%d'));
+ 
+-          $result = db_query("SELECT * FROM {term_data} WHERE tid IN ($placeholders)", $test);
++          $result = db_query(db_rewrite_sql("SELECT * FROM {term_data} td WHERE tid IN ($placeholders)", 'td', 'tid'), $test);
+           while ($term = db_fetch_object($result)) {
+             if ($vids && empty($vids[$term->vid])) {
+               $validated_cache[$term->tid] = FALSE;
+@@ -145,10 +145,10 @@ class views_plugin_argument_validate_taxonomy_term extends views_plugin_argument
+           $and = " AND td.vid IN(" . implode(', ', $vids) . ')';
+         }
+         if ($transform) {
+-          $result = db_fetch_object(db_query("SELECT td.* FROM {term_data} td LEFT JOIN {term_synonym} ts ON ts.tid = td.tid WHERE (replace(td.name, ' ', '-') = '%s' OR replace(ts.name, ' ', '-') = '%s')$and", $argument, $argument));
++          $result = db_fetch_object(db_query(db_rewrite_sql("SELECT td.* FROM {term_data} td LEFT JOIN {term_synonym} ts ON ts.tid = td.tid WHERE (replace(td.name, ' ', '-') = '%s' OR replace(ts.name, ' ', '-') = '%s')$and", 'td', 'tid'), $argument, $argument));
+         }
+         else {
+-          $result = db_fetch_object(db_query("SELECT td.* FROM {term_data} td LEFT JOIN {term_synonym} ts ON ts.tid = td.tid WHERE (td.name = '%s' OR ts.name = '%s')$and", $argument, $argument));
++          $result = db_fetch_object(db_query(db_rewrite_sql("SELECT td.* FROM {term_data} td LEFT JOIN {term_synonym} ts ON ts.tid = td.tid WHERE (td.name = '%s' OR ts.name = '%s')$and", 'td', 'tid'), $argument, $argument));
+         }
+         if (!$result) {
+           return FALSE;
+diff --git a/views.info b/views.info
+index 5495d03..404f6ad 100644
+--- a/views.info
++++ b/views.info
+@@ -4,7 +4,7 @@ package = Views
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2015-02-11
+-version = "6.x-3.2-p2"
++version = "6.x-3.2-p3"
+ core = "6.x"
+ project = "views"
+ datestamp = "1423647787"
+diff --git a/views_export/views_export.info b/views_export/views_export.info
+index a8d33a7..8708aab 100644
+--- a/views_export/views_export.info
++++ b/views_export/views_export.info
+@@ -6,7 +6,7 @@ dependencies[] = views
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2015-02-11
+-version = "6.x-3.2-p2"
++version = "6.x-3.2-p3"
+ core = "6.x"
+ project = "views"
+ datestamp = "1423647787"
+diff --git a/views_ui.info b/views_ui.info
+index 60ea7ee..4932cf4 100644
+--- a/views_ui.info
++++ b/views_ui.info
+@@ -5,7 +5,7 @@ core = 6.x
+ dependencies[] = views
+ 
+ ; Information added by Drupal.org packaging script on 2015-02-11
+-version = "6.x-3.2"
++version = "6.x-3.2-p3"
+ core = "6.x"
+ project = "views"
+ datestamp = "1423647787"
