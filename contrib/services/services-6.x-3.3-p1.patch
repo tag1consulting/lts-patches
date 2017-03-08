@@ -1,0 +1,77 @@
+diff --git a/auth/services_oauth/services_oauth.info b/auth/services_oauth/services_oauth.info
+index 2347dda..e3ba757 100644
+--- a/auth/services_oauth/services_oauth.info
++++ b/auth/services_oauth/services_oauth.info
+@@ -6,7 +6,7 @@ dependencies[] = oauth_common
+ core = 6.x
+ php = 5.2
+ ; Information added by drupal.org packaging script on 2012-11-15
+-version = "6.x-3.3"
++version = "6.x-3.3-p1"
+ core = "6.x"
+ project = "services"
+ datestamp = "1353015202"
+diff --git a/servers/rest_server/formats/xcal_format.info b/servers/rest_server/formats/xcal_format.info
+index 869e9c8..a7e6865 100644
+--- a/servers/rest_server/formats/xcal_format.info
++++ b/servers/rest_server/formats/xcal_format.info
+@@ -4,7 +4,7 @@ package = Services
+ core = 6.x
+ php = 5.x
+ ; Information added by drupal.org packaging script on 2012-11-15
+-version = "6.x-3.3"
++version = "6.x-3.3-p1"
+ core = "6.x"
+ project = "services"
+ datestamp = "1353015202"
+diff --git a/servers/rest_server/rest_server.info b/servers/rest_server/rest_server.info
+index 5afdb41..8e6ea0e 100644
+--- a/servers/rest_server/rest_server.info
++++ b/servers/rest_server/rest_server.info
+@@ -6,7 +6,7 @@ dependencies[] = autoload
+ dependencies[] = libraries
+ core = 6.x
+ ; Information added by drupal.org packaging script on 2012-11-15
+-version = "6.x-3.3"
++version = "6.x-3.3-p1"
+ core = "6.x"
+ project = "services"
+ datestamp = "1353015202"
+diff --git a/servers/rest_server/rest_server.module b/servers/rest_server/rest_server.module
+index ac1710a..b2436b7 100755
+--- a/servers/rest_server/rest_server.module
++++ b/servers/rest_server/rest_server.module
+@@ -63,7 +63,6 @@ function rest_server_request_parsers() {
+     $parsers = array(
+       'application/x-www-form-urlencoded' => 'RESTServer::parseURLEncoded',
+       'application/json' => 'RESTServer::parseJSON',
+-      'application/vnd.php.serialized' => 'RESTServer::parsePHP',
+       'multipart/form-data' => 'RESTServer::parseMultipart',
+     );
+ 
+diff --git a/servers/xmlrpc_server/xmlrpc_server.info b/servers/xmlrpc_server/xmlrpc_server.info
+index 58dea3a..cdc004c 100644
+--- a/servers/xmlrpc_server/xmlrpc_server.info
++++ b/servers/xmlrpc_server/xmlrpc_server.info
+@@ -4,7 +4,7 @@ package = Services - servers
+ dependencies[] = services
+ core = 6.x
+ ; Information added by drupal.org packaging script on 2012-11-15
+-version = "6.x-3.3"
++version = "6.x-3.3-p1"
+ core = "6.x"
+ project = "services"
+ datestamp = "1353015202"
+diff --git a/services.info b/services.info
+index 695a981..eb82f8d 100644
+--- a/services.info
++++ b/services.info
+@@ -5,7 +5,7 @@ core = 6.x
+ php = 5.x
+ dependencies[] = ctools
+ ; Information added by drupal.org packaging script on 2012-11-15
+-version = "6.x-3.3"
++version = "6.x-3.3-p1"
+ core = "6.x"
+ project = "services"
+ datestamp = "1353015202"
