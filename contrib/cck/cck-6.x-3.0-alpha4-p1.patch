@@ -1,0 +1,158 @@
+diff --git a/content.info b/content.info
+index 171b151..d29544c 100644
+--- a/content.info
++++ b/content.info
+@@ -3,7 +3,7 @@ description = Allows administrators to define new content types.
+ package = CCK
+ core = 6.x
+ ; Information added by Drupal.org packaging script on 2015-06-25
+-version = "6.x-3.0-alpha4"
++version = "6.x-3.0-alpha4-p1"
+ core = "6.x"
+ project = "cck"
+ datestamp = "1435195385"
+diff --git a/modules/content_copy/content_copy.info b/modules/content_copy/content_copy.info
+index b2be2eb..5c88818 100644
+--- a/modules/content_copy/content_copy.info
++++ b/modules/content_copy/content_copy.info
+@@ -4,7 +4,7 @@ dependencies[] = content
+ package = CCK
+ core = 6.x
+ ; Information added by Drupal.org packaging script on 2015-06-25
+-version = "6.x-3.0-alpha4"
++version = "6.x-3.0-alpha4-p1"
+ core = "6.x"
+ project = "cck"
+ datestamp = "1435195385"
+diff --git a/modules/content_multigroup/content_multigroup.info b/modules/content_multigroup/content_multigroup.info
+index 39fe544..fd31898 100644
+--- a/modules/content_multigroup/content_multigroup.info
++++ b/modules/content_multigroup/content_multigroup.info
+@@ -7,7 +7,7 @@ core = 6.x
+ 
+ 
+ ; Information added by Drupal.org packaging script on 2015-06-25
+-version = "6.x-3.0-alpha4"
++version = "6.x-3.0-alpha4-p1"
+ core = "6.x"
+ project = "cck"
+ datestamp = "1435195385"
+diff --git a/modules/content_permissions/content_permissions.info b/modules/content_permissions/content_permissions.info
+index 4e16068..ad95bbc 100644
+--- a/modules/content_permissions/content_permissions.info
++++ b/modules/content_permissions/content_permissions.info
+@@ -4,7 +4,7 @@ package = CCK
+ core = 6.x
+ dependencies[] = content
+ ; Information added by Drupal.org packaging script on 2015-06-25
+-version = "6.x-3.0-alpha4"
++version = "6.x-3.0-alpha4-p1"
+ core = "6.x"
+ project = "cck"
+ datestamp = "1435195385"
+diff --git a/modules/fieldgroup/fieldgroup.info b/modules/fieldgroup/fieldgroup.info
+index e76f7d5..cb1fb54 100644
+--- a/modules/fieldgroup/fieldgroup.info
++++ b/modules/fieldgroup/fieldgroup.info
+@@ -4,7 +4,7 @@ dependencies[] = content
+ package = CCK
+ core = 6.x
+ ; Information added by Drupal.org packaging script on 2015-06-25
+-version = "6.x-3.0-alpha4"
++version = "6.x-3.0-alpha4-p1"
+ core = "6.x"
+ project = "cck"
+ datestamp = "1435195385"
+diff --git a/modules/nodereference/nodereference.info b/modules/nodereference/nodereference.info
+index 44e126c..262a19d 100644
+--- a/modules/nodereference/nodereference.info
++++ b/modules/nodereference/nodereference.info
+@@ -6,7 +6,7 @@ dependencies[] = optionwidgets
+ package = CCK
+ core = 6.x
+ ; Information added by Drupal.org packaging script on 2015-06-25
+-version = "6.x-3.0-alpha4"
++version = "6.x-3.0-alpha4-p1"
+ core = "6.x"
+ project = "cck"
+ datestamp = "1435195385"
+diff --git a/modules/nodereference/nodereference.module b/modules/nodereference/nodereference.module
+index 5969a4f..0170cf1 100644
+--- a/modules/nodereference/nodereference.module
++++ b/modules/nodereference/nodereference.module
+@@ -935,6 +935,10 @@ function _nodereference_potential_references_standard($field, $string = '', $mat
+     return array();
+   }
+ 
++  if (!user_access('administer nodes')) {
++    $where[] = 'n.status = 1';
++  }
++
+   if ($string !== '') {
+     $like = $GLOBALS["db_type"] == 'pgsql' ? "ILIKE" : "LIKE";
+     $match_clauses = array(
+diff --git a/modules/number/number.info b/modules/number/number.info
+index 67b1d1d..a0c4cb7 100644
+--- a/modules/number/number.info
++++ b/modules/number/number.info
+@@ -4,7 +4,7 @@ dependencies[] = content
+ package = CCK
+ core = 6.x
+ ; Information added by Drupal.org packaging script on 2015-06-25
+-version = "6.x-3.0-alpha4"
++version = "6.x-3.0-alpha4-p1"
+ core = "6.x"
+ project = "cck"
+ datestamp = "1435195385"
+diff --git a/modules/optionwidgets/optionwidgets.info b/modules/optionwidgets/optionwidgets.info
+index 084e44c..fbd2002 100644
+--- a/modules/optionwidgets/optionwidgets.info
++++ b/modules/optionwidgets/optionwidgets.info
+@@ -4,7 +4,7 @@ dependencies[] = content
+ package = CCK
+ core = 6.x
+ ; Information added by Drupal.org packaging script on 2015-06-25
+-version = "6.x-3.0-alpha4"
++version = "6.x-3.0-alpha4-p1"
+ core = "6.x"
+ project = "cck"
+ datestamp = "1435195385"
+diff --git a/modules/text/text.info b/modules/text/text.info
+index 36c26a5..a06c8bc 100644
+--- a/modules/text/text.info
++++ b/modules/text/text.info
+@@ -4,7 +4,7 @@ dependencies[] = content
+ package = CCK
+ core = 6.x
+ ; Information added by Drupal.org packaging script on 2015-06-25
+-version = "6.x-3.0-alpha4"
++version = "6.x-3.0-alpha4-p1"
+ core = "6.x"
+ project = "cck"
+ datestamp = "1435195385"
+diff --git a/modules/userreference/userreference.info b/modules/userreference/userreference.info
+index c982484..39144d3 100644
+--- a/modules/userreference/userreference.info
++++ b/modules/userreference/userreference.info
+@@ -6,7 +6,7 @@ dependencies[] = optionwidgets
+ package = CCK
+ core = 6.x
+ ; Information added by Drupal.org packaging script on 2015-06-25
+-version = "6.x-3.0-alpha4"
++version = "6.x-3.0-alpha4-p1"
+ core = "6.x"
+ project = "cck"
+ datestamp = "1435195385"
+diff --git a/tests/content_test.info b/tests/content_test.info
+index ba34898..dfe8f5d 100644
+--- a/tests/content_test.info
++++ b/tests/content_test.info
+@@ -6,7 +6,7 @@ dependencies[] = schema
+ hidden = TRUE
+ files[] = content_test.module
+ ; Information added by Drupal.org packaging script on 2015-06-25
+-version = "6.x-3.0-alpha4"
++version = "6.x-3.0-alpha4-p1"
+ core = "6.x"
+ project = "cck"
+ datestamp = "1435195385"
