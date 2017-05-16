@@ -1,0 +1,74 @@
+diff --git a/webform_multifile.info b/webform_multifile.info
+index f37f8b1..45e1f0b 100644
+--- a/webform_multifile.info
++++ b/webform_multifile.info
+@@ -9,7 +9,7 @@ dependencies[] = transliteration
+ 
+ 
+ ; Information added by Drupal.org packaging script on 2016-07-13
+-version = "6.x-1.4"
++version = "6.x-1.4-p1"
+ core = "6.x"
+ project = "webform_multifile"
+ datestamp = "1468396444"
+diff --git a/webform_multifile.module b/webform_multifile.module
+index eed2c1b..604ecce 100644
+--- a/webform_multifile.module
++++ b/webform_multifile.module
+@@ -11,8 +11,8 @@ function webform_multifile_menu() {
+     'load arguments' => array(1),
+     'page callback' => 'drupal_get_form',
+     'page arguments' => array('webform_multifile_delete_form', 1, 3, 5, 6),
+-    'access callback' => 'webform_submission_access',
+-    'access arguments' => array(1, 3, 'edit'),
++    'access callback' => 'webform_multifile_delete_access',
++    'access arguments' => array(1, 3, 5, 6),
+     'type' => MENU_CALLBACK,
+   );
+ 
+@@ -20,6 +20,27 @@ function webform_multifile_menu() {
+ }
+ 
+ /**
++ * Access callback.
++ */
++function webform_multifile_delete_access($node, $submission, $component_id, $file_id) {
++  $submission_access = webform_submission_access($node, $submission, 'edit')
++    && $submission->nid == $node->nid
++    && isset($submission->data[$component_id]);
++  if (!$submission_access) {
++    return FALSE;
++  }
++  $submitted_fids = array();
++  foreach ($submission->data[$component_id]['value'] as $data) {
++    module_load_include('inc', 'webform_multifile', 'safe_unserialize');
++    $decoded = safe_unserialize($data);
++    if ($decoded) {
++      $submitted_fids = array_merge($submitted_fids, $decoded);
++    }
++  }
++  return !empty($submitted_fids) && in_array($file_id, $submitted_fids);
++}
++
++/**
+  * Implementation of hook_webform_component_info().
+  */
+ function webform_multifile_webform_component_info() {
+@@ -41,7 +62,7 @@ function webform_multifile_webform_component_info() {
+ /**
+  * Menu callback to delete a single file from a multifile upload.
+  */
+-function webform_multifile_delete_form($form, &$form_state, $webform, $submission, $component_id, $fid) {
++function webform_multifile_delete_form(&$form_state, $webform, $submission, $component_id, $fid) {
+   if ($file = db_fetch_object(db_query("SELECT * FROM {files} WHERE fid = %d", $fid))) {
+     $form['webform'] = array(
+       '#type' => 'value',
+@@ -73,7 +94,7 @@ function webform_multifile_delete_form($form, &$form_state, $webform, $submissio
+ + */
+ function webform_multifile_delete_form_submit($form, &$form_state) {
+   module_load_include('inc', 'webform_multifile', 'safe_unserialize');
+-  $filepath = file_load($form_state['values']['filepath']);
++  $filepath = $form_state['values']['filepath'];
+   file_delete($filepath);
+   // Update the submission data and re-save it without the deleted fid.
+   $fids = safe_unserialize($form_state['values']['submission']->data[$form_state['values']['component_id']]['value'][0]);
