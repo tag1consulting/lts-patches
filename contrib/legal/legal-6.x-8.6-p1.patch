@@ -1,0 +1,157 @@
+diff --git a/legal.info b/legal.info
+index f8fe723..14034d7 100644
+--- a/legal.info
++++ b/legal.info
+@@ -6,7 +6,7 @@ core = 6.x
+ 
+ 
+ ; Information added by Drupal.org packaging script on 2014-03-08
+-version = "6.x-8.6"
++version = "6.x-8.6-p1"
+ core = "6.x"
+ project = "legal"
+ datestamp = "1394244230"
+diff --git a/legal.install b/legal.install
+index f46c194..67dda30 100644
+--- a/legal.install
++++ b/legal.install
+@@ -159,6 +159,13 @@ function legal_update_6003() {
+ }
+ 
+ /**
++ * Clear the menu cache.
++ */
++function legal_update_6004() {
++  menu_rebuild();
++}
++
++/**
+  * Implementation of hook_uninstall().
+  */
+ function legal_uninstall() {
+diff --git a/legal.module b/legal.module
+index e6a658b..7671319 100644
+--- a/legal.module
++++ b/legal.module
+@@ -82,10 +82,10 @@ function legal_menu() {
+     'file' => 'legal.pages.inc',
+   );
+ 
+-  $items['legal_accept/%/%'] = array(
++  $items['legal_accept'] = array(
+     'title' => 'Terms and Conditions',
+     'page callback' => 'drupal_get_form',
+-    'page arguments' => array('legal_login', 1, 2),
++    'page arguments' => array('legal_login'),
+     'access callback' => TRUE,
+     'type' => MENU_CALLBACK,
+   );
+@@ -305,8 +305,15 @@ function legal_user($op, &$edit, &$account, $category = FALSE) {
+       unset($_REQUEST['destination']);
+ 
+       $signatory = db_fetch_object(db_query_range('SELECT * FROM {users} WHERE uid = %d', $uid, 0, 1));
++      $token = drupal_base64_encode(hash('sha256', drupal_random_bytes(55), TRUE));
++      $hash = user_pass_rehash($signatory->pass, $token, $signatory->login, $uid);
+ 
+-      drupal_goto('legal_accept/' . $signatory->uid . '/' . md5($signatory->name . $signatory->pass . $signatory->login), $query);
++      setcookie('legal_hash', $hash, 0, '/');
++      setcookie('legal_id', $uid, 0, '/');
++
++      $query['token'] = $token;
++
++      drupal_goto('legal_accept', $query);
+       break;
+ 
+     case 'form':
+@@ -465,9 +472,38 @@ function legal_user($op, &$edit, &$account, $category = FALSE) {
+ /**
+  * Require registered users to accept new T&C.
+  */
+-function legal_login($constructor, $uid, $id_hash = NULL) {
++function legal_login($constructor) {
+   global $language;
+ 
++  // Check we have all the data and there are no shenanigans.
++  if (!isset($_GET['token']) || !isset($_COOKIE['legal_id']) || !is_numeric($_COOKIE['legal_id']) || !isset($_COOKIE['legal_hash'])) {
++    // Delete these cookies.
++    setcookie('legal_hash', '', REQUEST_TIME - 3600, '/');
++    setcookie('legal_id', '', REQUEST_TIME - 3600, '/');
++    drupal_set_message(t('Operation timed out. Please try to log in again.'));
++    drupal_goto();
++  }
++
++  $hash = $_COOKIE['legal_hash'];
++  $uid = $_COOKIE['legal_id'];
++  $token = $_GET['token'];
++
++  $account = db_fetch_object(db_query("SELECT u.* FROM {users} u WHERE uid = %d", $uid));
++
++  // Make sure the account is real and has a last login value.
++  if (!isset($account->login)) {
++    drupal_goto();
++  }
++
++  // Limit how long $hash can be used to 1 hour.
++  // Timestamp and $hash are used to generate the authentication token.
++  if ((REQUEST_TIME - $account->login) > 3600) {
++    // Delete these cookies.
++    setcookie('legal_hash', '', REQUEST_TIME - 3600, '/');
++    setcookie('legal_id', '', REQUEST_TIME - 3600, '/');
++    drupal_goto();
++  }
++
+   // Get last accepted version for this account.
+   $legal_account = legal_get_accept($uid);
+ 
+@@ -499,9 +535,14 @@ function legal_login($constructor, $uid, $id_hash = NULL) {
+     '#value' => $uid,
+   );
+ 
+-  $form['id_hash'] = array(
++  $form['token'] = array(
++    '#type' => 'value',
++    '#value' => $token,
++  );
++
++  $form['hash'] = array(
+     '#type' => 'value',
+-    '#value' => $id_hash,
++    '#value' => $hash,
+   );
+ 
+   $form['tc_id'] = array(
+@@ -543,17 +584,31 @@ function legal_login($constructor, $uid, $id_hash = NULL) {
+ 
+ function legal_login_validate($form, &$form_state) {
+   $account = db_fetch_object(db_query_range('SELECT * FROM {users} WHERE uid = %d', $form_state['values']['uid'], 0, 1));
+-  $id_hash = md5($account->name . $account->pass . $account->login);
+ 
+-  if ($id_hash != $form_state['values']['id_hash']) {
++  $hash = user_pass_rehash(
++    $account->pass,
++    $form_state['values']['token'],
++    $account->login,
++    $form_state['values']['uid']
++  );
++
++  if ($hash !== $form_state['values']['hash']) {
+     form_set_error('legal_accept', t('User ID cannot be identified.'));
++    // Delete these cookies.
++    setcookie('legal_hash', '', REQUEST_TIME - 3600, '/');
++    setcookie('legal_id', '', REQUEST_TIME - 3600, '/');
+     drupal_goto();
+   }
+ }
+ 
+ function legal_login_submit($form, &$form_state) {
+   global $user;
+-    $values = $form_state['values'];
++
++  // Delete these cookies.
++  setcookie('legal_hash', '', REQUEST_TIME - 3600, '/');
++  setcookie('legal_id', '', REQUEST_TIME - 3600, '/');
++
++  $values = $form_state['values'];
+   $user = user_load(array('uid' => $values['uid']));
+ 
+   legal_save_accept($values['version'], $values['revision'], $values['language'], $user->uid);
