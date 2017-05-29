@@ -198,7 +198,7 @@ index 376aa8f..b1dcc8b 100644
  core = 6.x
  
  ; Information added by Drupal.org packaging script on 2015-02-11
--version = "6.x-3.2"
+-version = "6.x-3.2-p3"
 +version = "6.x-3.2-p4"
  core = "6.x"
  project = "views"
@@ -211,7 +211,7 @@ index f855501..1b9f3df 100644
  core = 6.x
  
  ; Information added by Drupal.org packaging script on 2015-02-11
--version = "6.x-3.2"
+-version = "6.x-3.2-p3"
 +version = "6.x-3.2-p4"
  core = "6.x"
  project = "views"
@@ -225,7 +225,7 @@ index 60ea7ee..c0a5b53 100644
  dependencies[] = views
  
  ; Information added by Drupal.org packaging script on 2015-02-11
--version = "6.x-3.2"
+-version = "6.x-3.2-p3"
 +version = "6.x-3.2-p4"
  core = "6.x"
  project = "views"
