@@ -1,0 +1,232 @@
+diff --git a/includes/view.inc b/includes/view.inc
+index 770b3e6..40f5317 100644
+--- a/includes/view.inc
++++ b/includes/view.inc
+@@ -597,7 +597,7 @@ class view extends views_db_object {
+    */
+   function _init_handler($key, $info) {
+     // Load the requested items from the display onto the object.
+-    $this->$key = $this->display_handler->get_handlers($key);
++    $this->$key = &$this->display_handler->get_handlers($key);
+ 
+     // This reference deals with difficult PHP indirection.
+     $handlers = &$this->$key;
+diff --git a/modules/statistics.views.inc b/modules/statistics.views.inc
+index 0b57395..6326575 100644
+--- a/modules/statistics.views.inc
++++ b/modules/statistics.views.inc
+@@ -36,7 +36,7 @@ function statistics_views_data() {
+     'help' => t('The total number of times the node has been viewed.'),
+ 
+     'field' => array(
+-      'handler' => 'views_handler_field_numeric',
++      'handler' => 'views_handler_field_statistics_numeric',
+       'click sortable' => TRUE,
+      ),
+     'filter' => array(
+@@ -53,7 +53,7 @@ function statistics_views_data() {
+     'help' => t('The total number of times the node has been viewed today.'),
+ 
+     'field' => array(
+-      'handler' => 'views_handler_field_numeric',
++      'handler' => 'views_handler_field_statistics_numeric',
+       'click sortable' => TRUE,
+      ),
+     'filter' => array(
+@@ -70,7 +70,7 @@ function statistics_views_data() {
+     'help' => t('The most recent time the node has been viewed.'),
+ 
+     'field' => array(
+-      'handler' => 'views_handler_field_date',
++      'handler' => 'views_handler_field_node_counter_timestamp',
+       'click sortable' => TRUE,
+     ),
+     'filter' => array(
+@@ -279,6 +279,12 @@ function statistics_views_handlers() {
+       'views_handler_field_accesslog_path' => array(
+         'parent' => 'views_handler_field',
+       ),
++      'views_handler_field_statistics_numeric' => array(
++        'parent' => 'views_handler_field_numeric',
++      ),
++      'views_handler_field_node_counter_timestamp' => array(
++        'parent' => 'views_handler_field_date',
++      ),
+     ),
+   );
+ }
+diff --git a/modules/taxonomy/views_handler_argument_term_node_tid.inc b/modules/taxonomy/views_handler_argument_term_node_tid.inc
+index aead304..7902cac 100644
+--- a/modules/taxonomy/views_handler_argument_term_node_tid.inc
++++ b/modules/taxonomy/views_handler_argument_term_node_tid.inc
+@@ -40,7 +40,7 @@ class views_handler_argument_term_node_tid extends views_handler_argument_many_t
+     $titles = array();
+     $placeholders = implode(', ', array_fill(0, sizeof($this->value), '%d'));
+ 
+-    $result = db_query("SELECT name FROM {term_data} WHERE tid IN ($placeholders)", $this->value);
++    $result = db_query(db_rewrite_sql("SELECT t.name FROM {term_data} t WHERE t.tid IN ($placeholders)", 't', 'tid', array($this->value)), $this->value);
+     while ($term = db_fetch_object($result)) {
+       $titles[] = check_plain($term->name);
+     }
+diff --git a/modules/taxonomy/views_handler_field_term_node_tid.inc b/modules/taxonomy/views_handler_field_term_node_tid.inc
+index a6e625b..2c0924a 100644
+--- a/modules/taxonomy/views_handler_field_term_node_tid.inc
++++ b/modules/taxonomy/views_handler_field_term_node_tid.inc
+@@ -81,10 +81,10 @@ class views_handler_field_term_node_tid extends views_handler_field_prerender_li
+       $voc = '';
+       $voc_ids = array_filter($this->options['vids']);
+       if (!empty($this->options['limit']) && !empty($voc_ids)) {
+-        $voc = " AND td.vid IN (" . implode(', ', array_keys($voc_ids)) . ")";
++        $voc = " AND t.vid IN (" . implode(', ', array_keys($voc_ids)) . ")";
+       }
+ 
+-      $result = db_query("SELECT tn.vid AS node_vid, td.*, v.name as vocabulary FROM {term_data} td INNER JOIN {term_node} tn ON td.tid = tn.tid INNER JOIN {vocabulary} v ON v.vid = td.vid WHERE tn.vid IN (" . implode(', ', $vids) . ")$voc ORDER BY td.weight, td.name");
++      $result = db_query("SELECT tn.vid AS node_vid, t.*, v.name as vocabulary FROM {term_data} t INNER JOIN {term_node} tn ON t.tid = tn.tid INNER JOIN {vocabulary} v ON v.vid = t.vid WHERE tn.vid IN (" . implode(', ', $vids) . ")$voc ORDER BY t.weight, t.name");
+ 
+       while ($term = db_fetch_object($result)) {
+         $this->items[$term->node_vid][$term->tid]['name'] = check_plain($term->name);
+diff --git a/modules/taxonomy/views_handler_filter_term_node_tid.inc b/modules/taxonomy/views_handler_filter_term_node_tid.inc
+index 255fe8e..16bb691 100644
+--- a/modules/taxonomy/views_handler_filter_term_node_tid.inc
++++ b/modules/taxonomy/views_handler_filter_term_node_tid.inc
+@@ -86,7 +86,7 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
+     if ($this->options['type'] == 'textfield') {
+       $default = '';
+       if ($this->value) {
+-        $result = db_query("SELECT * FROM {term_data} td WHERE td.tid IN (" . implode(', ', $this->value) . ')');
++        $result = db_query("SELECT t.* FROM {term_data} t WHERE t.tid IN (" . implode(', ', $this->value) . ')');
+         while ($term = db_fetch_object($result)) {
+           if ($default) {
+             $default .= ', ';
+@@ -124,7 +124,7 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
+           $result = db_query(db_rewrite_sql("SELECT t.* FROM {term_data} t WHERE t.vid = %d ORDER BY t.weight, t.name", 't', 'tid'), $vocabulary->vid);
+         }
+         else {
+-          $result = db_query(db_rewrite_sql("SELECT td.* FROM {term_data} td INNER JOIN {vocabulary} v ON td.vid = v.vid ORDER BY v.weight, v.name, td.weight, td.name", 'td', 'tid'));
++          $result = db_query(db_rewrite_sql("SELECT t.* FROM {term_data} t INNER JOIN {vocabulary} v ON t.vid = v.vid ORDER BY v.weight, v.name, t.weight, t.name", 't', 'tid'));
+         }
+         while ($term = db_fetch_object($result)) {
+           $options[$term->tid] = $term->name;
+@@ -274,7 +274,7 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
+     // add the taxonomy vid to the argument list.
+     $args[] = $this->options['vid'];
+ 
+-    $result = db_query("SELECT * FROM {term_data} td WHERE td.name IN (" . implode(', ', $placeholders) . ") AND td.vid = %d", $args);
++    $result = db_query(db_rewrite_sql("SELECT t.* FROM {term_data} t WHERE t.name IN (" . implode(', ', $placeholders) . ") AND t.vid = %d", 't', 'tid', $args), $args);
+     while ($term = db_fetch_object($result)) {
+       unset($missing[strtolower($term->name)]);
+       $tids[] = $term->tid;
+@@ -311,7 +311,7 @@ class views_handler_filter_term_node_tid extends views_handler_filter_many_to_on
+     $this->value_options = array();
+ 
+     if ($this->value) {
+-      $result = db_query("SELECT * FROM {term_data} td WHERE td.tid IN ("  . implode(', ', $this->value) . ")");
++      $result = db_query("SELECT t.* FROM {term_data} t WHERE t.tid IN ("  . implode(', ', $this->value) . ")");
+ 
+       while ($term = db_fetch_object($result)) {
+         $this->value_options[$term->tid] = $term->name;
+diff --git a/modules/taxonomy/views_handler_relationship_node_term_data.inc b/modules/taxonomy/views_handler_relationship_node_term_data.inc
+index 30998c6..5d69a24 100644
+--- a/modules/taxonomy/views_handler_relationship_node_term_data.inc
++++ b/modules/taxonomy/views_handler_relationship_node_term_data.inc
+@@ -63,7 +63,7 @@ class views_handler_relationship_node_term_data extends views_handler_relationsh
+       $def['field'] = 'revision';
+       // fapi ensures vids are safe here.
+       $vids = implode(', ', array_filter($this->options['vids']));
+-      $def['table formula'] = "(SELECT td.*, tn.vid AS revision FROM {term_data} td INNER JOIN {term_node} tn ON tn.tid = td.tid WHERE td.vid IN ($vids))";
++      $def['table formula'] = "(SELECT t.*, tn.vid AS revision FROM {term_data} t INNER JOIN {term_node} tn ON tn.tid = t.tid WHERE t.vid IN ($vids))";
+     }
+ 
+     $join = new views_join();
+diff --git a/modules/taxonomy/views_plugin_argument_validate_taxonomy_term.inc b/modules/taxonomy/views_plugin_argument_validate_taxonomy_term.inc
+index febc17d..d469aca 100644
+--- a/modules/taxonomy/views_plugin_argument_validate_taxonomy_term.inc
++++ b/modules/taxonomy/views_plugin_argument_validate_taxonomy_term.inc
+@@ -76,7 +76,7 @@ class views_plugin_argument_validate_taxonomy_term extends views_plugin_argument
+           return FALSE;
+         }
+ 
+-        $result = db_fetch_object(db_query("SELECT * FROM {term_data} WHERE tid = %d", $argument));
++        $result = db_fetch_object(db_query(db_rewrite_sql("SELECT t.* FROM {term_data} t WHERE t.tid = %d", 't', 'tid', array($argument)),  $argument));
+         if (!$result) {
+           return FALSE;
+         }
+@@ -119,7 +119,7 @@ class views_plugin_argument_validate_taxonomy_term extends views_plugin_argument
+         if (count($test)) {
+           $placeholders = implode(', ', array_fill(0, count($test), '%d'));
+ 
+-          $result = db_query("SELECT * FROM {term_data} WHERE tid IN ($placeholders)", $test);
++          $result = db_query(db_rewrite_sql("SELECT t.* FROM {term_data} t WHERE t.tid IN ($placeholders)", 't', 'tid', array($test)), $test);
+           while ($term = db_fetch_object($result)) {
+             if ($vids && empty($vids[$term->vid])) {
+               $validated_cache[$term->tid] = FALSE;
+@@ -142,13 +142,13 @@ class views_plugin_argument_validate_taxonomy_term extends views_plugin_argument
+       case 'convert':
+         $and = '';
+         if (!empty($vids)) {
+-          $and = " AND td.vid IN(" . implode(', ', $vids) . ')';
++          $and = " AND t.vid IN(" . implode(', ', $vids) . ')';
+         }
+         if ($transform) {
+-          $result = db_fetch_object(db_query("SELECT td.* FROM {term_data} td LEFT JOIN {term_synonym} ts ON ts.tid = td.tid WHERE (replace(td.name, ' ', '-') = '%s' OR replace(ts.name, ' ', '-') = '%s')$and", $argument, $argument));
++          $result = db_fetch_object(db_query(db_rewrite_sql("SELECT t.* FROM {term_data} t LEFT JOIN {term_synonym} ts ON ts.tid = t.tid WHERE (replace(t.name, ' ', '-') = '%s' OR replace(ts.name, ' ', '-') = '%s')$and", 't', 'tid', array($argument, $argument)), $argument, $argument));
+         }
+         else {
+-          $result = db_fetch_object(db_query("SELECT td.* FROM {term_data} td LEFT JOIN {term_synonym} ts ON ts.tid = td.tid WHERE (td.name = '%s' OR ts.name = '%s')$and", $argument, $argument));
++          $result = db_fetch_object(db_query(db_rewrite_sql("SELECT t.* FROM {term_data} t LEFT JOIN {term_synonym} ts ON ts.tid = t.tid WHERE (t.name = '%s' OR ts.name = '%s')$and", 't', 'tid', array($argument, $argument)), $argument, $argument));
+         }
+         if (!$result) {
+           return FALSE;
+diff --git a/plugins/views_plugin_display.inc b/plugins/views_plugin_display.inc
+index 9ad2c99..0de20f5 100644
+--- a/plugins/views_plugin_display.inc
++++ b/plugins/views_plugin_display.inc
+@@ -838,7 +838,7 @@ class views_plugin_display extends views_plugin {
+   /**
+    * Get a full array of handlers for $type. This caches them.
+    */
+-  function get_handlers($type) {
++  function &get_handlers($type) {
+     if (!isset($this->handlers[$type])) {
+       $this->handlers[$type] = array();
+       $types = views_object_types();
+diff --git a/views.info b/views.info
+index 376aa8f..b1dcc8b 100644
+--- a/views.info
++++ b/views.info
+@@ -4,7 +4,7 @@ package = Views
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2015-02-11
+-version = "6.x-3.2"
++version = "6.x-3.2-p4"
+ core = "6.x"
+ project = "views"
+ datestamp = "1423647787"
+diff --git a/views_export/views_export.info b/views_export/views_export.info
+index f855501..1b9f3df 100644
+--- a/views_export/views_export.info
++++ b/views_export/views_export.info
+@@ -6,8 +6,7 @@ dependencies[] = views
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2015-02-11
+-version = "6.x-3.2"
++version = "6.x-3.2-p4"
+ core = "6.x"
+ project = "views"
+ datestamp = "1423647787"
+-
+diff --git a/views_ui.info b/views_ui.info
+index 60ea7ee..c0a5b53 100644
+--- a/views_ui.info
++++ b/views_ui.info
+@@ -5,7 +5,7 @@ core = 6.x
+ dependencies[] = views
+ 
+ ; Information added by Drupal.org packaging script on 2015-02-11
+-version = "6.x-3.2"
++version = "6.x-3.2-p4"
+ core = "6.x"
+ project = "views"
+ datestamp = "1423647787"
