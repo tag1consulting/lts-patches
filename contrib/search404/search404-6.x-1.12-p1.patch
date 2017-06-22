@@ -1,0 +1,13 @@
+diff --git a/search404.module b/search404.module
+index cbddd89..93657dc 100644
+--- a/search404.module
++++ b/search404.module
+@@ -237,7 +237,7 @@ function search404_page() {
+     else {
+       $search_form = drupal_get_form('search_form', NULL, $keys, $type_search);
+     }
+-    $output = variable_get('search404_page_text', '') . $search_form . $search_suggestions . $results;
++    $output = filter_xss_admin(variable_get('search404_page_text', '')) . $search_form . $search_suggestions . $results;
+   }
+ 
+   // This was done to display sidebars left and right of page,
