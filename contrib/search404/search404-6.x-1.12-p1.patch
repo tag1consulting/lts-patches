@@ -1,0 +1,26 @@
+diff --git a/search404.info b/search404.info
+index d88b586..ce40c02 100644
+--- a/search404.info
++++ b/search404.info
+@@ -7,7 +7,7 @@ core = 6.x
+ 
+ 
+ ; Information added by drupal.org packaging script on 2012-07-30
+-version = "6.x-1.12"
++version = "6.x-1.12-p1"
+ core = "6.x"
+ project = "search404"
+ datestamp = "1343685439"
+diff --git a/search404.module b/search404.module
+index cbddd89..93657dc 100644
+--- a/search404.module
++++ b/search404.module
+@@ -237,7 +237,7 @@ function search404_page() {
+     else {
+       $search_form = drupal_get_form('search_form', NULL, $keys, $type_search);
+     }
+-    $output = variable_get('search404_page_text', '') . $search_form . $search_suggestions . $results;
++    $output = filter_xss_admin(variable_get('search404_page_text', '')) . $search_form . $search_suggestions . $results;
+   }
+ 
+   // This was done to display sidebars left and right of page,
