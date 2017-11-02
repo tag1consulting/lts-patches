@@ -1,0 +1,41 @@
+diff --git a/autologout.admin.inc b/autologout.admin.inc
+index 8e5583a..abdce81 100644
+--- a/autologout.admin.inc
++++ b/autologout.admin.inc
+@@ -86,7 +86,9 @@ function autologout_settings() {
+     '#title' => t('Message to display to the user after they are logged out.'),
+     '#default_value' => variable_get('autologout_inactivity_message', 'You have been logged out due to inactivity.'),
+     '#size' => 40,
+-    '#description' => t('This message is displayed after the user was logged out due to inactivity. You can leave this blank to show no message to the user.'),
++    '#description' => t('This message is displayed after the user was logged out due to inactivity. You can leave this blank to show no message to the user.')
++      . ' ' . t('This text will passed through <a href="!url">filter_xss</a>.',
++        array('!url' => "https://api.drupal.org/api/drupal/includes%21common.inc/function/filter_xss/6.x")),
+   );
+ 
+   $form['autologout_use_watchdog'] = array(
+diff --git a/autologout.info b/autologout.info
+index 2250195..40d98e1 100644
+--- a/autologout.info
++++ b/autologout.info
+@@ -8,7 +8,7 @@ core = 6.x
+ 
+ 
+ ; Information added by  packaging script on 2013-11-05
+-version = "6.x-4.3"
++version = "6.x-4.3-p1"
+ core = "6.x"
+ project = "autologout"
+ datestamp = "1383644007"
+diff --git a/autologout.module b/autologout.module
+index dcb5d8c..aeb6a9e 100644
+--- a/autologout.module
++++ b/autologout.module
+@@ -677,7 +677,7 @@ function _autologout_logout_role($user) {
+ function _autologout_inactivity_message() {
+   $message = variable_get('autologout_inactivity_message', 'You have been logged out due to inactivity.');
+   if (!empty($message)) {
+-    drupal_set_message(t($message));
++    drupal_set_message(filter_xss(t($message)));
+   }
+ }
+ 
