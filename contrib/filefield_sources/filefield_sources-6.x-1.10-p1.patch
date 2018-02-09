@@ -1,0 +1,28 @@
+diff --git a/filefield_sources.info b/filefield_sources.info
+index b81f64f..ca6f98f 100644
+--- a/filefield_sources.info
++++ b/filefield_sources.info
+@@ -5,7 +5,7 @@ package = CCK
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2013-12-28
+-version = "6.x-1.10"
++version = "6.x-1.10-p1"
+ core = "6.x"
+ project = "filefield_sources"
+ datestamp = "1388255005"
+diff --git a/sources/reference.inc b/sources/reference.inc
+index 21c5a53..387a06d 100644
+--- a/sources/reference.inc
++++ b/sources/reference.inc
+@@ -169,7 +169,9 @@ function filefield_source_reference_autocomplete($type_name, $field_name, $filen
+   if (!empty($field)) {
+     $files = filefield_source_reference_get_files($filename, $field);
+     foreach ($files as $fid => $file) {
+-      $items[$file->filename ." [fid:$fid]"] = theme('filefield_source_reference_autocomplete_item', $file);
++      if (filefield_sources_file_access($file->filepath)) {
++        $items[$file->filename . " [fid:$fid]"] = theme('filefield_source_reference_autocomplete_item', $file);
++      }
+     }
+   }
+ 
