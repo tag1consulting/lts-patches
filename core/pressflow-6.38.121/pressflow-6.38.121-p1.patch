@@ -1,0 +1,53 @@
+diff --git a/.htaccess b/.htaccess
+index 4733ffa..c5dbb5b 100644
+--- a/.htaccess
++++ b/.htaccess
+@@ -76,6 +76,12 @@ DirectoryIndex index.php
+   </FilesMatch>
+ </IfModule>
+ 
++# Disable Proxy header, since it's an attack vector. See https://www.drupal.org/SA-CORE-2016-003
++<IfModule mod_headers.c>
++  RequestHeader unset Proxy
++</IfModule>
++
++
+ # Various rewrite rules.
+ <IfModule mod_rewrite.c>
+   RewriteEngine on
+diff --git a/CHANGELOG.txt b/CHANGELOG.txt
+index f0c0aab..6f9c238 100644
+--- a/CHANGELOG.txt
++++ b/CHANGELOG.txt
+@@ -1,3 +1,18 @@
++Drupal 6.38-p1, 2016-08-10 - SA-CORE-2016-003
++---------------------------------------------
++
++The provided patch will mitigate possible exploits of the HTTP_PROXY
++header in Drupal 6. There are no currently known vectors of this
++exploit in Drupal 6, however, we still advise blocking the HTTP_PROXY
++header either with this patch for simple Apache installations (the
++patch includes rules in .htaccess) or via your own configuration if
++you use another webserver and/or you have disabled htaccess. You can
++read more about this issue here: https://www.drupal.org/SA-CORE-2016-003
++and here: https://httpoxy.org/
++
++Almost all site administrators will want to take the infrastructure
++actions suggested in httppoxy.org and a complete solution to this
++vulnerability.
+ 
+ Drupal 6.38, 2016-02-24 - Final release
+ ---------------------------------------
+diff --git a/modules/system/system.module b/modules/system/system.module
+index dc421d2..87b16bf 100644
+--- a/modules/system/system.module
++++ b/modules/system/system.module
+@@ -8,7 +8,7 @@
+ /**
+  * The current system version.
+  */
+-define('VERSION', '6.38');
++define('VERSION', '6.38-p1');
+ 
+ /**
+  * Core API compatibility.

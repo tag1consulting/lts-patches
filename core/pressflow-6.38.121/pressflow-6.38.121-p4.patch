@@ -1,0 +1,39 @@
+diff --git a/CHANGELOG.txt b/CHANGELOG.txt
+index 4643a7f..c81814b 100644
+--- a/CHANGELOG.txt
++++ b/CHANGELOG.txt
+@@ -1,3 +1,8 @@
++Drupal 6.38-p4, 2018-03-28 - SA-CORE-2018-002
++
++A bugfix introduced in -p3, affecting sites using PHP 5.x.
++
++
+ Drupal 6.38-p3, 2018-03-28 - SA-CORE-2018-002
+ 
+ A remote code execution vulnerability exists within multiple subsystems.
+diff --git a/includes/bootstrap.inc b/includes/bootstrap.inc
+index afed740..7cf8c5a 100644
+--- a/includes/bootstrap.inc
++++ b/includes/bootstrap.inc
+@@ -2258,6 +2258,8 @@ function _drupal_bootstrap_sanitize_input(&$input, $whitelist = array()) {
+         $sanitized_keys = array_merge($sanitized_keys, _drupal_bootstrap_sanitize_input($input[$key], $whitelist));
+       }
+     }
++    // PHP 5.x will leave the array pointer at the end without this.
++    reset($input);
+   }
+ 
+   return $sanitized_keys;
+diff --git a/modules/system/system.module b/modules/system/system.module
+index b3139e3..6a10b0f 100644
+--- a/modules/system/system.module
++++ b/modules/system/system.module
+@@ -8,7 +8,7 @@
+ /**
+  * The current system version.
+  */
+-define('VERSION', '6.38-p3');
++define('VERSION', '6.38-p4');
+ 
+ /**
+  * Core API compatibility.
