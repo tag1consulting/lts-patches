@@ -1,0 +1,167 @@
+diff --git a/xmlsitemap.info b/xmlsitemap.info
+index 7c6a575..e3ddb5c 100644
+--- a/xmlsitemap.info
++++ b/xmlsitemap.info
+@@ -19,7 +19,7 @@ recommends[] = vertical_tabs
+ configure = admin/config/search/xmlsitemap
+ 
+ ; Information added by Drupal.org packaging script on 2014-12-05
+-version = "6.x-2.1-p2"
++version = "6.x-2.1-p3"
+ core = "6.x"
+ project = "xmlsitemap"
+ datestamp = "1417746205"
+diff --git a/xmlsitemap_custom/xmlsitemap_custom.info b/xmlsitemap_custom/xmlsitemap_custom.info
+index 241032c..2049582 100644
+--- a/xmlsitemap_custom/xmlsitemap_custom.info
++++ b/xmlsitemap_custom/xmlsitemap_custom.info
+@@ -9,7 +9,7 @@ files[] = xmlsitemap_custom.install
+ files[] = xmlsitemap_custom.test
+ 
+ ; Information added by Drupal.org packaging script on 2014-12-05
+-version = "6.x-2.1-p2"
++version = "6.x-2.1-p3"
+ core = "6.x"
+ project = "xmlsitemap"
+ datestamp = "1417746205"
+diff --git a/xmlsitemap_engines/tests/xmlsitemap_engines_test.info b/xmlsitemap_engines/tests/xmlsitemap_engines_test.info
+index 86f2a3d..1e305b8 100644
+--- a/xmlsitemap_engines/tests/xmlsitemap_engines_test.info
++++ b/xmlsitemap_engines/tests/xmlsitemap_engines_test.info
+@@ -7,7 +7,7 @@ version = VERSION
+ hidden = TRUE
+ 
+ ; Information added by Drupal.org packaging script on 2014-12-05
+-version = "6.x-2.1-p2"
++version = "6.x-2.1-p3"
+ core = "6.x"
+ project = "xmlsitemap"
+ datestamp = "1417746205"
+diff --git a/xmlsitemap_engines/xmlsitemap_engines.info b/xmlsitemap_engines/xmlsitemap_engines.info
+index 4891131..4a2f8f2 100644
+--- a/xmlsitemap_engines/xmlsitemap_engines.info
++++ b/xmlsitemap_engines/xmlsitemap_engines.info
+@@ -10,7 +10,7 @@ files[] = tests/xmlsitemap_engines.test
+ recommends[] = site_verify
+ 
+ ; Information added by Drupal.org packaging script on 2014-12-05
+-version = "6.x-2.1-p2"
++version = "6.x-2.1-p3"
+ core = "6.x"
+ project = "xmlsitemap"
+ datestamp = "1417746205"
+diff --git a/xmlsitemap_i18n/xmlsitemap_i18n.info b/xmlsitemap_i18n/xmlsitemap_i18n.info
+index e52c4d9..391e785 100644
+--- a/xmlsitemap_i18n/xmlsitemap_i18n.info
++++ b/xmlsitemap_i18n/xmlsitemap_i18n.info
+@@ -8,7 +8,7 @@ files[] = xmlsitemap_i18n.module
+ files[] = xmlsitemap_i18n.test
+ 
+ ; Information added by Drupal.org packaging script on 2014-12-05
+-version = "6.x-2.1-p2"
++version = "6.x-2.1-p3"
+ core = "6.x"
+ project = "xmlsitemap"
+ datestamp = "1417746205"
+diff --git a/xmlsitemap_menu/xmlsitemap_menu.info b/xmlsitemap_menu/xmlsitemap_menu.info
+index 887a7dd..cb81bb8 100644
+--- a/xmlsitemap_menu/xmlsitemap_menu.info
++++ b/xmlsitemap_menu/xmlsitemap_menu.info
+@@ -9,7 +9,7 @@ files[] = xmlsitemap_menu.install
+ files[] = xmlsitemap_menu.test
+ 
+ ; Information added by Drupal.org packaging script on 2014-12-05
+-version = "6.x-2.1-p2"
++version = "6.x-2.1-p3"
+ core = "6.x"
+ project = "xmlsitemap"
+ datestamp = "1417746205"
+diff --git a/xmlsitemap_modal/xmlsitemap_modal.info b/xmlsitemap_modal/xmlsitemap_modal.info
+index 4fc5ab5..979cae4 100644
+--- a/xmlsitemap_modal/xmlsitemap_modal.info
++++ b/xmlsitemap_modal/xmlsitemap_modal.info
+@@ -7,7 +7,7 @@ dependencies[] = ctools
+ files[] = xmlsitemap_modal.module
+ 
+ ; Information added by Drupal.org packaging script on 2014-12-05
+-version = "6.x-2.1-p2"
++version = "6.x-2.1-p3"
+ core = "6.x"
+ project = "xmlsitemap"
+ datestamp = "1417746205"
+diff --git a/xmlsitemap_node/xmlsitemap_node.info b/xmlsitemap_node/xmlsitemap_node.info
+index 2e6c3b3..39fad0e 100644
+--- a/xmlsitemap_node/xmlsitemap_node.info
++++ b/xmlsitemap_node/xmlsitemap_node.info
+@@ -8,7 +8,7 @@ files[] = xmlsitemap_node.install
+ files[] = xmlsitemap_node.test
+ 
+ ; Information added by Drupal.org packaging script on 2014-12-05
+-version = "6.x-2.1-p2"
++version = "6.x-2.1-p3"
+ core = "6.x"
+ project = "xmlsitemap"
+ datestamp = "1417746205"
+diff --git a/xmlsitemap_node/xmlsitemap_node.module b/xmlsitemap_node/xmlsitemap_node.module
+index 4a084cc..73abdf5 100644
+--- a/xmlsitemap_node/xmlsitemap_node.module
++++ b/xmlsitemap_node/xmlsitemap_node.module
+@@ -81,8 +81,8 @@ function xmlsitemap_node_nodeapi(stdClass &$node, $op, $a3 = NULL, $a4 = NULL) {
+   switch ($op) {
+     case 'insert':
+     case 'update':
+-      $link = xmlsitemap_node_create_link($node);
+-      xmlsitemap_link_save($link);
++      // Defer creating and saving the link until the node is fully saved.
++      register_shutdown_function('xmlsitemap_node_create_and_save_link', $node, getcwd());
+       break;
+     case 'delete':
+       xmlsitemap_link_delete('node', $node->nid);
+@@ -235,6 +235,21 @@ function xmlsitemap_node_create_link(stdClass $node) {
+   return $node->xmlsitemap;
+ }
+ 
++/**
++ * Create and save a sitemap link from a node.
++ */
++function xmlsitemap_node_create_and_save_link($node, $drupal_root = NULL) {
++  if (!empty($drupal_root)) {
++    // Set the CWD to DRUPAL_ROOT as it is not guaranteed to be the same as it
++    // was in the normal context of execution.
++    // @see _drupal_shutdown_function() from Drupal 7.
++    chdir($drupal_root);
++  }
++
++  $link = xmlsitemap_node_create_link($node);
++  xmlsitemap_link_save($link);
++}
++
+ /**
+  * Determine whether a user may view the specified node.
+  *
+diff --git a/xmlsitemap_taxonomy/xmlsitemap_taxonomy.info b/xmlsitemap_taxonomy/xmlsitemap_taxonomy.info
+index fbbb161..dd5ce14 100644
+--- a/xmlsitemap_taxonomy/xmlsitemap_taxonomy.info
++++ b/xmlsitemap_taxonomy/xmlsitemap_taxonomy.info
+@@ -9,7 +9,7 @@ files[] = xmlsitemap_taxonomy.install
+ files[] = xmlsitemap_taxonomy.test
+ 
+ ; Information added by Drupal.org packaging script on 2014-12-05
+-version = "6.x-2.1-p2"
++version = "6.x-2.1-p3"
+ core = "6.x"
+ project = "xmlsitemap"
+ datestamp = "1417746205"
+diff --git a/xmlsitemap_user/xmlsitemap_user.info b/xmlsitemap_user/xmlsitemap_user.info
+index b4bbb7e..45f5a88 100644
+--- a/xmlsitemap_user/xmlsitemap_user.info
++++ b/xmlsitemap_user/xmlsitemap_user.info
+@@ -8,7 +8,7 @@ files[] = xmlsitemap_user.install
+ files[] = xmlsitemap_user.test
+ 
+ ; Information added by Drupal.org packaging script on 2014-12-05
+-version = "6.x-2.1-p2"
++version = "6.x-2.1-p3"
+ core = "6.x"
+ project = "xmlsitemap"
+ datestamp = "1417746205"
