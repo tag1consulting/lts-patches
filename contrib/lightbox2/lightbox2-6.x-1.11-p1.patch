@@ -1,0 +1,62 @@
+diff --git a/README.txt b/README.txt
+index 99849cf..3197795 100644
+--- a/README.txt
++++ b/README.txt
+@@ -2,6 +2,7 @@ CONTENTS OF THIS FILE
+ ----------------------
+ 
+   * Introduction
++  * Security
+   * Installation
+   * Adding Lightbox Functionality to your Images
+     - No Grouping
+@@ -48,6 +49,18 @@ Lightbox2 Lite option which does not use the jQuery libraries; it is therefore
+ less likely to conflict with anything else.
+ 
+ 
++SECURITY
++--------
++
++Lightbox2 6.x-1.11-p1, 2018-10-10 - SA-CONTRIB-2018-064
++
++The module did not sanitize some inputs when used in combination with a custom
++view leading to potential Cross Site Scripting (XSS).
++
++Upstream reference:
++https://www.drupal.org/sa-contrib-2018-064
++
++
+ INSTALLATION
+ ------------
+ 1. Copy lightbox2 folder to modules directory.
+diff --git a/lightbox2.info b/lightbox2.info
+index cc606ed..06cc808 100644
+--- a/lightbox2.info
++++ b/lightbox2.info
+@@ -4,7 +4,7 @@ description = Enables Lightbox2 for Drupal
+ core = 6.x
+ 
+ ; Information added by drupal.org packaging script on 2010-09-24
+-version = "6.x-1.11"
++version = "6.x-1.11-p1"
+ core = "6.x"
+ project = "lightbox2"
+ datestamp = "1285342563"
+diff --git a/lightbox2_handler_field_lightbox2.inc b/lightbox2_handler_field_lightbox2.inc
+index 2dd3b48..1496dbb 100644
+--- a/lightbox2_handler_field_lightbox2.inc
++++ b/lightbox2_handler_field_lightbox2.inc
+@@ -142,7 +142,12 @@ class lightbox2_handler_field_lightbox2 extends views_handler_field {
+       // div is hidden it won't show up as a lightbox.  We also specify a group
+       // in the rel attribute in order to link the whole View together for paging.
+       $group_name = !empty($this->options['custom_group']) ? $this->options['custom_group'] : ($this->options['rel_group'] ? 'lightbox-popup-' . $this->view->name . '-' . implode('/', $this->view->args) : '');
+-      return "<a href='$link #lightbox-popup-{$i}'  rel='lightmodal[{$group_name}|width:" . ($this->options['width'] ? $this->options['width'] : '600px') . ';height:' . ($this->options['height'] ? $this->options['height'] : '600px') . "][" . $caption . "]'>". $tokens["[{$this->options['trigger_field']}]"] ."</a>
++      $group_name = check_plain($group_name);
++      $width = $this->options['width'] ? check_plain($this->options['width']) : '600px';
++      $height = $this->options['height'] ? check_plain($this->options['height']) : '600px';
++      $trigger_field = filter_xss_admin($this->options['trigger_field']);
++
++      return "<a href='$link #lightbox-popup-{$i}'  rel='lightmodal[{$group_name}|width:" . $width . ';height:' . $height . "][" . $caption . "]'>" . $tokens["[{$trigger_field}]"] . "</a>
+                 <div style='display: none;'><div id='lightbox-popup-{$i}' class='lightbox-popup'>$popup</div></div>";
+     }
+     else {
