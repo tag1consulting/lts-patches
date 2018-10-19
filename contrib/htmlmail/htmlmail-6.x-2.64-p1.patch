@@ -1,0 +1,72 @@
+diff --git a/CHANGELOG.txt b/CHANGELOG.txt
+index 3fea1bb..2f8ab23 100644
+--- a/CHANGELOG.txt
++++ b/CHANGELOG.txt
+@@ -1,3 +1,14 @@
++HTML Mail 6.x-2.64-p1, 2018-10-17, SA-CONTRIB-2018-069
++
++The HTML Mail module lets you theme your messages the same way you theme the
++rest of your website.
++
++When sending email some variables were not being sanitized for shell arguments,
++which could lead to remote code execution.
++
++Upstream reference:
++https://www.drupal.org/sa-contrib-2018-069
++
+   Change Log Summary
+ 
+    -- (Note: See the [1]git repository for full version)
+diff --git a/htmlmail.info b/htmlmail.info
+index 2b60af4..e808e74 100644
+--- a/htmlmail.info
++++ b/htmlmail.info
+@@ -9,7 +9,7 @@ core = 6.x
+ configure = admin/settings/htmlmail
+ 
+ ; Information added by drupal.org packaging script on 2012-03-19
+-version = "6.x-2.64"
++version = "6.x-2.64-p1"
+ core = "6.x"
+ project = "htmlmail"
+ datestamp = "1332160247"
+diff --git a/htmlmail.mail.inc b/htmlmail.mail.inc
+index a1d3027..9aa1269 100644
+--- a/htmlmail.mail.inc
++++ b/htmlmail.mail.inc
+@@ -262,7 +262,7 @@ class HTMLMailSystem implements MailSystemInterface {
+         // if the parameter is NULL.
+         $result = @mail($to, $subject, $body, $txt_headers);
+       }
+-      else {
++      elseif ((variable_get('site_mail', ini_get('sendmail_from')) == $message['headers']['Return-Path'] || self::_isShellSafe($message['headers']['Return-Path']))) {
+         // On most non-Windows systems, the "-f" option to the sendmail command
+         // is used to set the Return-Path.
+         $extra = '-f' . $message['headers']['Return-Path'];
+@@ -319,4 +319,26 @@ class HTMLMailSystem implements MailSystemInterface {
+     }
+     return implode("\n", $output);
+   }
++
++  /**
++   * Disallows potentially unsafe shell characters.
++   *
++   * @param string $string
++   *   The string to be validated.
++   *
++   * @return bool
++   *   True if the string is shell-safe.
++   *
++   * @see https://api.drupal.org/api/drupal/modules%21system%21system.mail.inc/7.x
++   */
++  protected static function _isShellSafe($string) {
++    if (escapeshellcmd($string) !== $string || !in_array(escapeshellarg($string), array("'$string'", "\"$string\""))) {
++      return FALSE;
++    }
++    if (preg_match('/[^a-zA-Z0-9@_\-.]/', $string) !== 0) {
++      return FALSE;
++    }
++    return TRUE;
++  }
++
+ }
