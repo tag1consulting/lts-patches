@@ -1,0 +1,1921 @@
+diff --git a/CHANGELOG.txt b/CHANGELOG.txt
+index 86c28b1..3cb3a69 100644
+--- a/CHANGELOG.txt
++++ b/CHANGELOG.txt
+@@ -1,3 +1,18 @@
++Drupal 6.38-p7, 2019-01-16 - SA-CORE-2019-002
++
++A remote code execution vulnerability exists in PHP's built-in phar stream
++wrapper when performing file operations on an untrusted phar:// URI.
++
++Some Drupal code (core, contrib, and custom) may be performing file operations
++on insufficiently validated user input, thereby being exposed to this vulnerability.
++
++This vulnerability is mitigated by the fact that such code paths typically require
++access to an administrative permission or an atypical configuration.
++
++Upstream reference:
++https://www.drupal.org/sa-core-2019-002
++
++
+ Drupal 6.38-p6, 2018-04-17 - SA-CORE-2018-006
+ 
+ The path module allows users with the 'administer url aliases' permission to
+diff --git a/includes/bootstrap.inc b/includes/bootstrap.inc
+index a25acf1..d80f526 100644
+--- a/includes/bootstrap.inc
++++ b/includes/bootstrap.inc
+@@ -1138,6 +1138,18 @@ function _drupal_bootstrap($phase) {
+ 
+     case DRUPAL_BOOTSTRAP_CONFIGURATION:
+       drupal_unset_globals();
++      // PHP's built-in phar:// stream wrapper is not sufficiently secure. Override
++      // it with a more secure one, which requires PHP 5.3.3. For lower versions,
++      // unregister the built-in one without replacing it. Sites needing phar
++      // support for lower PHP versions must implement hook_stream_wrappers() to
++      // register their desired implementation.
++      if (in_array('phar', stream_get_wrappers(), TRUE)) {
++        stream_wrapper_unregister('phar');
++        if (version_compare(PHP_VERSION, '5.3.3', '>=')) {
++          include_once './includes/file.phar.inc';
++          file_register_phar_wrapper();
++        }
++      }
+       // Start a page timer:
+       timer_start('page');
+       // Initialize the configuration
+diff --git a/includes/file.inc b/includes/file.inc
+index b0f90e8..bae46c6 100644
+--- a/includes/file.inc
++++ b/includes/file.inc
+@@ -663,7 +663,7 @@ function file_save_upload($source, $validators = array(), $dest = FALSE, $replac
+     }
+ 
+     // Rename potentially executable files, to help prevent exploits.
+-    if (preg_match('/\.(php|pl|py|cgi|asp|js)$/i', $file->filename) && (substr($file->filename, -4) != '.txt')) {
++    if (preg_match('/\.(php|phar|pl|py|cgi|asp|js)$/i', $file->filename) && (substr($file->filename, -4) != '.txt')) {
+       $file->filemime = 'text/plain';
+       $file->filepath .= '.txt';
+       $file->filename .= '.txt';
+diff --git a/includes/file.phar.inc b/includes/file.phar.inc
+new file mode 100644
+index 0000000..0e19890
+--- /dev/null
++++ b/includes/file.phar.inc
+@@ -0,0 +1,41 @@
++<?php
++
++use Drupal\Core\Security\PharExtensionInterceptor;
++use TYPO3\PharStreamWrapper\Manager as PharStreamWrapperManager;
++use TYPO3\PharStreamWrapper\Behavior as PharStreamWrapperBehavior;
++use TYPO3\PharStreamWrapper\PharStreamWrapper;
++
++/**
++ * Registers a phar stream wrapper that is more secure than PHP's built-in one.
++ *
++ * @see file_get_stream_wrappers()
++ */
++function file_register_phar_wrapper() {
++  $directory = './misc/typo3/phar-stream-wrapper/src';
++  include_once $directory . '/Assertable.php';
++  include_once $directory . '/Behavior.php';
++  include_once $directory . '/Exception.php';
++  include_once $directory . '/Helper.php';
++  include_once $directory . '/Manager.php';
++  include_once $directory . '/PharStreamWrapper.php';
++  include_once './misc/typo3/drupal-security/PharExtensionInterceptor.php';
++
++  // Set up a stream wrapper to handle insecurities due to PHP's built-in
++  // phar stream wrapper.
++  try {
++    $behavior = new PharStreamWrapperBehavior();
++    PharStreamWrapperManager::initialize(
++      $behavior->withAssertion(new PharExtensionInterceptor())
++    );
++  }
++  catch (\LogicException $e) {
++    // Continue if the PharStreamWrapperManager is already initialized.
++    // For example, this occurs following a drupal_static_reset(), such
++    // as during tests.
++  };
++
++  // To prevent file_stream_wrapper_valid_scheme() treating "phar" as a valid
++  // scheme, this is registered with PHP only, not with  hook_stream_wrappers()
++  // or the internal storage of file_get_stream_wrappers().
++  stream_wrapper_register('phar', '\\TYPO3\\PharStreamWrapper\\PharStreamWrapper');
++}
+diff --git a/misc/typo3/drupal-security/PharExtensionInterceptor.php b/misc/typo3/drupal-security/PharExtensionInterceptor.php
+new file mode 100644
+index 0000000..2e1a0cb
+--- /dev/null
++++ b/misc/typo3/drupal-security/PharExtensionInterceptor.php
+@@ -0,0 +1,79 @@
++<?php
++
++namespace Drupal\Core\Security;
++
++use TYPO3\PharStreamWrapper\Assertable;
++use TYPO3\PharStreamWrapper\Helper;
++use TYPO3\PharStreamWrapper\Exception;
++
++/**
++ * An alternate PharExtensionInterceptor to support phar-based CLI tools.
++ *
++ * @see \TYPO3\PharStreamWrapper\Interceptor\PharExtensionInterceptor
++ */
++class PharExtensionInterceptor implements Assertable {
++
++  /**
++   * Determines whether phar file is allowed to execute.
++   *
++   * The phar file is allowed to execute if:
++   * - the base file name has a ".phar" suffix.
++   * - it is the CLI tool that has invoked the interceptor.
++   *
++   * @param string $path
++   *   The path of the phar file to check.
++   * @param string $command
++   *   The command being carried out.
++   *
++   * @return bool
++   *   TRUE if the phar file is allowed to execute.
++   *
++   * @throws Exception
++   *   Thrown when the file is not allowed to execute.
++   */
++  public function assert($path, $command) {
++    if ($this->baseFileContainsPharExtension($path)) {
++      return TRUE;
++    }
++    throw new Exception(
++      sprintf(
++        'Unexpected file extension in "%s"',
++        $path
++      ),
++      1535198703
++    );
++  }
++
++  /**
++   * Determines if a path has a .phar extension or invoked execution.
++   *
++   * @param string $path
++   *   The path of the phar file to check.
++   *
++   * @return bool
++   *   TRUE if the file has a .phar extension or if the execution has been
++   *   invoked by the phar file.
++   */
++  private function baseFileContainsPharExtension($path) {
++    $baseFile = Helper::determineBaseFile($path);
++    if ($baseFile === NULL) {
++      return FALSE;
++    }
++    // If the stream wrapper is registered by invoking a phar file that does
++    // not not have .phar extension then this should be allowed. For
++    // example, some CLI tools recommend removing the extension.
++    $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
++    // Find the last entry in the backtrace containing a 'file' key as
++    // sometimes the last caller is executed outside the scope of a file. For
++    // example, this occurs with shutdown functions.
++    do {
++      $caller = array_pop($backtrace);
++    } while (empty($caller['file']) && !empty($backtrace));
++    if (isset($caller['file']) && $baseFile === Helper::determineBaseFile($caller['file'])) {
++      return TRUE;
++    }
++    $fileExtension = pathinfo($baseFile, PATHINFO_EXTENSION);
++    return strtolower($fileExtension) === 'phar';
++  }
++
++}
+diff --git a/misc/typo3/phar-stream-wrapper/LICENSE b/misc/typo3/phar-stream-wrapper/LICENSE
+new file mode 100644
+index 0000000..d71267a
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/LICENSE
+@@ -0,0 +1,21 @@
++MIT License
++
++Copyright (c) 2018 TYPO3 project - https://typo3.org/
++
++Permission is hereby granted, free of charge, to any person obtaining a copy
++of this software and associated documentation files (the "Software"), to deal
++in the Software without restriction, including without limitation the rights
++to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++copies of the Software, and to permit persons to whom the Software is
++furnished to do so, subject to the following conditions:
++
++The above copyright notice and this permission notice shall be included in all
++copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++SOFTWARE.
+diff --git a/misc/typo3/phar-stream-wrapper/README.md b/misc/typo3/phar-stream-wrapper/README.md
+new file mode 100644
+index 0000000..b632784
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/README.md
+@@ -0,0 +1,155 @@
++[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/TYPO3/phar-stream-wrapper/badges/quality-score.png?b=v2)](https://scrutinizer-ci.com/g/TYPO3/phar-stream-wrapper/?branch=v2)
++[![Travis CI Build Status](https://travis-ci.org/TYPO3/phar-stream-wrapper.svg?branch=v2)](https://travis-ci.org/TYPO3/phar-stream-wrapper)
++
++# PHP Phar Stream Wrapper
++
++## Abstract & History
++
++Based on Sam Thomas' findings concerning
++[insecure deserialization in combination with obfuscation strategies](https://blog.secarma.co.uk/labs/near-phar-dangerous-unserialization-wherever-you-are)
++allowing to hide Phar files inside valid image resources, the TYPO3 project
++decided back then to introduce a `PharStreamWrapper` to intercept invocations
++of the `phar://` stream in PHP and only allow usage for defined locations in
++the file system.
++
++Since the TYPO3 mission statement is **inspiring people to share**, we thought
++it would be helpful for others to release our `PharStreamWrapper` as standalone
++package to the PHP community.
++
++The mentioned security issue was reported to TYPO3 on 10th June 2018 by Sam Thomas
++and has been addressed concerning the specific attack vector and for this generic
++`PharStreamWrapper` in TYPO3 versions 7.6.30 LTS, 8.7.17 LTS and 9.3.1 on 12th
++July 2018.
++
++* https://typo3.org/security/advisory/typo3-core-sa-2018-002/
++* https://blog.secarma.co.uk/labs/near-phar-dangerous-unserialization-wherever-you-are
++* https://youtu.be/GePBmsNJw6Y
++
++## License
++
++In general the TYPO3 core is released under the GNU General Public License version
++2 or any later version (`GPL-2.0-or-later`). In order to avoid licensing issues and
++incompatibilities this `PharStreamWrapper` is licenced under the MIT License. In case
++you duplicate or modify source code, credits are not required but really appreciated.
++
++## Credits
++
++Thanks to [Alex Pott](https://github.com/alexpott), Drupal for creating
++back-ports of all sources in order to provide compatibility with PHP v5.3.
++
++## Installation
++
++The `PharStreamWrapper` is provided as composer package `typo3/phar-stream-wrapper`
++and has minimum requirements of PHP v5.3 ([`v2`](https://github.com/TYPO3/phar-stream-wrapper/tree/v2) branch) and PHP v7.0 ([`master`](https://github.com/TYPO3/phar-stream-wrapper) branch).
++
++### Installation for PHP v7.0
++
++```
++composer require typo3/phar-stream-wrapper ^3.0
++```
++
++### Installation for PHP v5.3
++
++```
++composer require typo3/phar-stream-wrapper ^2.0
++```
++
++## Example
++
++The following example is bundled within this package, the shown
++`PharExtensionInterceptor` denies all stream wrapper invocations files
++not having the `.phar` suffix. Interceptor logic has to be individual and
++adjusted to according requirements.
++
++```
++$behavior = new \TYPO3\PharStreamWrapper\Behavior();
++Manager::initialize(
++    $behavior->withAssertion(new PharExtensionInterceptor())
++);
++
++if (in_array('phar', stream_get_wrappers())) {
++    stream_wrapper_unregister('phar');
++    stream_wrapper_register('phar', 'TYPO3\\PharStreamWrapper\\PharStreamWrapper');
++}
++```
++
++* `PharStreamWrapper` defined as class reference will be instantiated each time
++  `phar://` streams shall be processed.
++* `Manager` as singleton pattern being called by `PharStreamWrapper` instances
++  in order to retrieve individual behavior and settings.
++* `Behavior` holds reference to interceptor(s) that shall assert correct/allowed
++  invocation of a given `$path` for a given `$command`. Interceptors implement
++  the interface `Assertable`. Interceptors can act individually on following
++  commands or handle all of them in case not defined specifically:  
++  + `COMMAND_DIR_OPENDIR`
++  + `COMMAND_MKDIR`
++  + `COMMAND_RENAME`
++  + `COMMAND_RMDIR`
++  + `COMMAND_STEAM_METADATA`
++  + `COMMAND_STREAM_OPEN`
++  + `COMMAND_UNLINK`
++  + `COMMAND_URL_STAT`
++
++## Interceptor
++
++The following interceptor is shipped with the package and ready to use in order
++to block any Phar invocation of files not having a `.phar` suffix. Besides that
++individual interceptors are possible of course.
++
++```
++class PharExtensionInterceptor implements Assertable
++{
++    /**
++     * Determines whether the base file name has a ".phar" suffix.
++     *
++     * @param string $path
++     * @param string $command
++     * @return bool
++     * @throws Exception
++     */
++    public function assert($path, $command)
++    {
++        if ($this->baseFileContainsPharExtension($path)) {
++            return true;
++        }
++        throw new Exception(
++            sprintf(
++                'Unexpected file extension in "%s"',
++                $path
++            ),
++            1535198703
++        );
++    }
++
++    /**
++     * @param string $path
++     * @return bool
++     */
++    private function baseFileContainsPharExtension($path)
++    {
++        $baseFile = Helper::determineBaseFile($path);
++        if ($baseFile === null) {
++            return false;
++        }
++        $fileExtension = pathinfo($baseFile, PATHINFO_EXTENSION);
++        return strtolower($fileExtension) === 'phar';
++    }
++}
++```
++
++## Helper
++
++* `Helper::determineBaseFile(string $path)`: Determines base file that can be
++  accessed using the regular file system. For instance the following path
++  `phar:///home/user/bundle.phar/content.txt` would be resolved to
++  `/home/user/bundle.phar`.
++* `Helper::resetOpCache()`: Resets PHP's OPcache if enabled as work-around for
++  issues in `include()` or `require()` calls and OPcache delivering wrong
++  results. More details can be found in PHP's bug tracker, for instance like
++  https://bugs.php.net/bug.php?id=66569
++
++## Security Contact
++
++In case of finding additional security issues in the TYPO3 project or in this
++`PharStreamWrapper` package in particular, please get in touch with the
++[TYPO3 Security Team](mailto:security@typo3.org).
+diff --git a/misc/typo3/phar-stream-wrapper/composer.json b/misc/typo3/phar-stream-wrapper/composer.json
+new file mode 100644
+index 0000000..d308f8c
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/composer.json
+@@ -0,0 +1,24 @@
++{
++    "name": "typo3/phar-stream-wrapper",
++    "description": "Interceptors for PHP's native phar:// stream handling",
++    "type": "library",
++    "license": "MIT",
++    "homepage": "https://typo3.org/",
++    "keywords": ["php", "phar", "stream-wrapper", "security"],
++    "require": {
++        "php": "^5.3.3|^7.0"
++    },
++    "require-dev": {
++        "phpunit/phpunit": "^4.8.36"
++    },
++    "autoload": {
++        "psr-4": {
++            "TYPO3\\PharStreamWrapper\\": "src/"
++        }
++    },
++    "autoload-dev": {
++        "psr-4": {
++            "TYPO3\\PharStreamWrapper\\Tests\\": "tests/"
++        }
++    }
++}
+diff --git a/misc/typo3/phar-stream-wrapper/src/Assertable.php b/misc/typo3/phar-stream-wrapper/src/Assertable.php
+new file mode 100644
+index 0000000..a21b1da
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Assertable.php
+@@ -0,0 +1,22 @@
++<?php
++namespace TYPO3\PharStreamWrapper;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++interface Assertable
++{
++    /**
++     * @param string $path
++     * @param string $command
++     * @return bool
++     */
++    public function assert($path, $command);
++}
+diff --git a/misc/typo3/phar-stream-wrapper/src/Behavior.php b/misc/typo3/phar-stream-wrapper/src/Behavior.php
+new file mode 100644
+index 0000000..0b640ef
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Behavior.php
+@@ -0,0 +1,124 @@
++<?php
++namespace TYPO3\PharStreamWrapper;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++class Behavior implements Assertable
++{
++    const COMMAND_DIR_OPENDIR = 'dir_opendir';
++    const COMMAND_MKDIR = 'mkdir';
++    const COMMAND_RENAME = 'rename';
++    const COMMAND_RMDIR = 'rmdir';
++    const COMMAND_STEAM_METADATA = 'stream_metadata';
++    const COMMAND_STREAM_OPEN = 'stream_open';
++    const COMMAND_UNLINK = 'unlink';
++    const COMMAND_URL_STAT = 'url_stat';
++
++    /**
++     * @var string[]
++     */
++    private $availableCommands = array(
++        self::COMMAND_DIR_OPENDIR,
++        self::COMMAND_MKDIR,
++        self::COMMAND_RENAME,
++        self::COMMAND_RMDIR,
++        self::COMMAND_STEAM_METADATA,
++        self::COMMAND_STREAM_OPEN,
++        self::COMMAND_UNLINK,
++        self::COMMAND_URL_STAT,
++    );
++
++    /**
++     * @var Assertable[]
++     */
++    private $assertions;
++
++    /**
++     * @param Assertable $assertable
++     * @return static
++     */
++    public function withAssertion(Assertable $assertable)
++    {
++        $commands = func_get_args();
++        array_shift($commands);
++        $this->assertCommands($commands);
++        $commands = $commands ?: $this->availableCommands;
++
++        $target = clone $this;
++        foreach ($commands as $command) {
++            $target->assertions[$command] = $assertable;
++        }
++        return $target;
++    }
++
++    /**
++     * @param string $path
++     * @param string $command
++     * @return bool
++     */
++    public function assert($path, $command)
++    {
++        $this->assertCommand($command);
++        $this->assertAssertionCompleteness();
++
++        return $this->assertions[$command]->assert($path, $command);
++    }
++
++    /**
++     * @param array $commands
++     */
++    private function assertCommands(array $commands)
++    {
++        $unknownCommands = array_diff($commands, $this->availableCommands);
++        if (empty($unknownCommands)) {
++            return;
++        }
++        throw new \LogicException(
++            sprintf(
++                'Unknown commands: %s',
++                implode(', ', $unknownCommands)
++            ),
++            1535189881
++        );
++    }
++
++    private function assertCommand($command)
++    {
++        if (in_array($command, $this->availableCommands, true)) {
++            return;
++        }
++        throw new \LogicException(
++            sprintf(
++                'Unknown command "%s"',
++                $command
++            ),
++            1535189882
++        );
++    }
++
++    private function assertAssertionCompleteness()
++    {
++        $undefinedAssertions = array_diff(
++            $this->availableCommands,
++            array_keys($this->assertions)
++        );
++        if (empty($undefinedAssertions)) {
++            return;
++        }
++        throw new \LogicException(
++            sprintf(
++                'Missing assertions for commands: %s',
++                implode(', ', $undefinedAssertions)
++            ),
++            1535189883
++        );
++    }
++}
+diff --git a/misc/typo3/phar-stream-wrapper/src/Exception.php b/misc/typo3/phar-stream-wrapper/src/Exception.php
+new file mode 100644
+index 0000000..690121a
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Exception.php
+@@ -0,0 +1,16 @@
++<?php
++namespace TYPO3\PharStreamWrapper;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++class Exception extends \RuntimeException
++{
++}
+diff --git a/misc/typo3/phar-stream-wrapper/src/Helper.php b/misc/typo3/phar-stream-wrapper/src/Helper.php
+new file mode 100644
+index 0000000..32d0da6
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Helper.php
+@@ -0,0 +1,183 @@
++<?php
++namespace TYPO3\PharStreamWrapper;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++class Helper
++{
++    /*
++     * Resets PHP's OPcache if enabled as work-around for issues in `include()`
++     * or `require()` calls and OPcache delivering wrong results.
++     *
++     * @see https://bugs.php.net/bug.php?id=66569
++     */
++    public static function resetOpCache()
++    {
++        if (function_exists('opcache_reset')
++            && function_exists('opcache_get_status')
++        ) {
++            $status = opcache_get_status();
++            if (!empty($status['opcache_enabled'])) {
++                opcache_reset();
++            }
++        }
++    }
++
++    /**
++     * Determines base file that can be accessed using the regular file system.
++     * For e.g. "phar:///home/user/bundle.phar/content.txt" that would result
++     * into "/home/user/bundle.phar".
++     *
++     * @param string $path
++     * @return string|null
++     */
++    public static function determineBaseFile($path)
++    {
++        $parts = explode('/', static::normalizePath($path));
++
++        while (count($parts)) {
++            $currentPath = implode('/', $parts);
++            if (@is_file($currentPath)) {
++                return $currentPath;
++            }
++            array_pop($parts);
++        }
++
++        return null;
++    }
++
++    /**
++     * @param string $path
++     * @return string
++     */
++    public static function removePharPrefix($path)
++    {
++        $path = trim($path);
++        if (stripos($path, 'phar://') !== 0) {
++            return $path;
++        }
++        return substr($path, 7);
++    }
++
++    /**
++     * Normalizes a path, removes phar:// prefix, fixes Windows directory
++     * separators. Result is without trailing slash.
++     *
++     * @param string $path
++     * @return string
++     */
++    public static function normalizePath($path)
++    {
++        return rtrim(
++            static::getCanonicalPath(
++                static::removePharPrefix($path)
++            ),
++            '/'
++        );
++    }
++
++    /**
++     * Fixes a path for windows-backslashes and reduces double-slashes to single slashes
++     *
++     * @param string $path File path to process
++     * @return string
++     */
++    private static function normalizeWindowsPath($path)
++    {
++        return str_replace('\\', '/', $path);
++    }
++
++    /**
++     * Resolves all dots, slashes and removes spaces after or before a path...
++     *
++     * @param string $path Input string
++     * @return string Canonical path, always without trailing slash
++     */
++    private static function getCanonicalPath($path)
++    {
++        $path = static::normalizeWindowsPath($path);
++
++        $absolutePathPrefix = '';
++        if (static::isAbsolutePath($path)) {
++            if (static::isWindows() && strpos($path, ':/') === 1) {
++                $absolutePathPrefix = substr($path, 0, 3);
++                $path = substr($path, 3);
++            } else {
++                $path = ltrim($path, '/');
++                $absolutePathPrefix = '/';
++            }
++        }
++
++        $pathParts = explode('/', $path);
++        $pathPartsLength = count($pathParts);
++        for ($partCount = 0; $partCount < $pathPartsLength; $partCount++) {
++            // double-slashes in path: remove element
++            if ($pathParts[$partCount] === '') {
++                array_splice($pathParts, $partCount, 1);
++                $partCount--;
++                $pathPartsLength--;
++            }
++            // "." in path: remove element
++            if ((isset($pathParts[$partCount]) ? $pathParts[$partCount] : '') === '.') {
++                array_splice($pathParts, $partCount, 1);
++                $partCount--;
++                $pathPartsLength--;
++            }
++            // ".." in path:
++            if ((isset($pathParts[$partCount]) ? $pathParts[$partCount] : '') === '..') {
++                if ($partCount === 0) {
++                    array_splice($pathParts, $partCount, 1);
++                    $partCount--;
++                    $pathPartsLength--;
++                } elseif ($partCount >= 1) {
++                    // Rremove this and previous element
++                    array_splice($pathParts, $partCount - 1, 2);
++                    $partCount -= 2;
++                    $pathPartsLength -= 2;
++                } elseif ($absolutePathPrefix) {
++                    // can't go higher than root dir
++                    // simply remove this part and continue
++                    array_splice($pathParts, $partCount, 1);
++                    $partCount--;
++                    $pathPartsLength--;
++                }
++            }
++        }
++
++        return $absolutePathPrefix . implode('/', $pathParts);
++    }
++
++    /**
++     * Checks if the $path is absolute or relative (detecting either '/' or
++     * 'x:/' as first part of string) and returns TRUE if so.
++     *
++     * @param string $path File path to evaluate
++     * @return bool
++     */
++    private static function isAbsolutePath($path)
++    {
++        // Path starting with a / is always absolute, on every system
++        // On Windows also a path starting with a drive letter is absolute: X:/
++        return (isset($path[0]) ? $path[0] : null) === '/'
++            || static::isWindows() && (
++                strpos($path, ':/') === 1
++                || strpos($path, ':\\') === 1
++            );
++    }
++
++    /**
++     * @return bool
++     */
++    private static function isWindows()
++    {
++        return stripos(PHP_OS, 'WIN') === 0;
++    }
++}
+\ No newline at end of file
+diff --git a/misc/typo3/phar-stream-wrapper/src/Interceptor/PharExtensionInterceptor.php b/misc/typo3/phar-stream-wrapper/src/Interceptor/PharExtensionInterceptor.php
+new file mode 100644
+index 0000000..db500af
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Interceptor/PharExtensionInterceptor.php
+@@ -0,0 +1,55 @@
++<?php
++namespace TYPO3\PharStreamWrapper\Interceptor;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++use TYPO3\PharStreamWrapper\Assertable;
++use TYPO3\PharStreamWrapper\Helper;
++use TYPO3\PharStreamWrapper\Exception;
++
++class PharExtensionInterceptor implements Assertable
++{
++    /**
++     * Determines whether the base file name has a ".phar" suffix.
++     *
++     * @param string $path
++     * @param string $command
++     * @return bool
++     * @throws Exception
++     */
++    public function assert($path, $command)
++    {
++        if ($this->baseFileContainsPharExtension($path)) {
++            return true;
++        }
++        throw new Exception(
++            sprintf(
++                'Unexpected file extension in "%s"',
++                $path
++            ),
++            1535198703
++        );
++    }
++
++    /**
++     * @param string $path
++     * @return bool
++     */
++    private function baseFileContainsPharExtension($path)
++    {
++        $baseFile = Helper::determineBaseFile($path);
++        if ($baseFile === null) {
++            return false;
++        }
++        $fileExtension = pathinfo($baseFile, PATHINFO_EXTENSION);
++        return strtolower($fileExtension) === 'phar';
++    }
++}
+diff --git a/misc/typo3/phar-stream-wrapper/src/Manager.php b/misc/typo3/phar-stream-wrapper/src/Manager.php
+new file mode 100644
+index 0000000..1eb9735
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Manager.php
+@@ -0,0 +1,85 @@
++<?php
++namespace TYPO3\PharStreamWrapper;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++class Manager implements Assertable
++{
++    /**
++     * @var self
++     */
++    private static $instance;
++
++    /**
++     * @var Behavior
++     */
++    private $behavior;
++
++    /**
++     * @param Behavior $behaviour
++     * @return self
++     */
++    public static function initialize(Behavior $behaviour)
++    {
++        if (self::$instance === null) {
++            self::$instance = new self($behaviour);
++            return self::$instance;
++        }
++        throw new \LogicException(
++            'Manager can only be initialized once',
++            1535189871
++        );
++    }
++
++    /**
++     * @return self
++     */
++    public static function instance()
++    {
++        if (self::$instance !== null) {
++            return self::$instance;
++        }
++        throw new \LogicException(
++            'Manager needs to be initialized first',
++            1535189872
++        );
++    }
++
++    /**
++     * @return bool
++     */
++    public static function destroy()
++    {
++        if (self::$instance === null) {
++            return false;
++        }
++        self::$instance = null;
++        return true;
++    }
++
++    /**
++     * @param Behavior $behaviour
++     */
++    private function __construct(Behavior $behaviour)
++    {
++        $this->behavior = $behaviour;
++    }
++
++    /**
++     * @param string $path
++     * @param string $command
++     * @return bool
++     */
++    public function assert($path, $command)
++    {
++        return $this->behavior->assert($path, $command);
++    }
++}
+diff --git a/misc/typo3/phar-stream-wrapper/src/PharStreamWrapper.php b/misc/typo3/phar-stream-wrapper/src/PharStreamWrapper.php
+new file mode 100644
+index 0000000..5a924e4
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/PharStreamWrapper.php
+@@ -0,0 +1,477 @@
++<?php
++namespace TYPO3\PharStreamWrapper;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++class PharStreamWrapper
++{
++    /**
++     * Internal stream constants that are not exposed to PHP, but used...
++     * @see https://github.com/php/php-src/blob/e17fc0d73c611ad0207cac8a4a01ded38251a7dc/main/php_streams.h
++     */
++    const STREAM_OPEN_FOR_INCLUDE = 128;
++
++    /**
++     * @var resource
++     */
++    public $context;
++
++    /**
++     * @var resource
++     */
++    protected $internalResource;
++
++    /**
++     * @return bool
++     */
++    public function dir_closedir()
++    {
++        if (!is_resource($this->internalResource)) {
++            return false;
++        }
++
++        $this->invokeInternalStreamWrapper(
++            'closedir',
++            $this->internalResource
++        );
++        return !is_resource($this->internalResource);
++    }
++
++    /**
++     * @param string $path
++     * @param int $options
++     * @return bool
++     */
++    public function dir_opendir($path, $options)
++    {
++        $this->assert($path, Behavior::COMMAND_DIR_OPENDIR);
++        $this->internalResource = $this->invokeInternalStreamWrapper(
++            'opendir',
++            $path,
++            $this->context
++        );
++        return is_resource($this->internalResource);
++    }
++
++    /**
++     * @return string|false
++     */
++    public function dir_readdir()
++    {
++        return $this->invokeInternalStreamWrapper(
++            'readdir',
++            $this->internalResource
++        );
++    }
++
++    /**
++     * @return bool
++     */
++    public function dir_rewinddir()
++    {
++        if (!is_resource($this->internalResource)) {
++            return false;
++        }
++
++        $this->invokeInternalStreamWrapper(
++            'rewinddir',
++            $this->internalResource
++        );
++        return is_resource($this->internalResource);
++    }
++
++    /**
++     * @param string $path
++     * @param int $mode
++     * @param int $options
++     * @return bool
++     */
++    public function mkdir($path, $mode, $options)
++    {
++        $this->assert($path, Behavior::COMMAND_MKDIR);
++        return $this->invokeInternalStreamWrapper(
++            'mkdir',
++            $path,
++            $mode,
++            (bool) ($options & STREAM_MKDIR_RECURSIVE),
++            $this->context
++        );
++    }
++
++    /**
++     * @param string $path_from
++     * @param string $path_to
++     * @return bool
++     */
++    public function rename($path_from, $path_to)
++    {
++        $this->assert($path_from, Behavior::COMMAND_RENAME);
++        $this->assert($path_to, Behavior::COMMAND_RENAME);
++        return $this->invokeInternalStreamWrapper(
++            'rename',
++            $path_from,
++            $path_to,
++            $this->context
++        );
++    }
++
++    /**
++     * @param string $path
++     * @param int $options
++     * @return bool
++     */
++    public function rmdir($path, $options)
++    {
++        $this->assert($path, Behavior::COMMAND_RMDIR);
++        return $this->invokeInternalStreamWrapper(
++            'rmdir',
++            $path,
++            $this->context
++        );
++    }
++
++    /**
++     * @param int $cast_as
++     */
++    public function stream_cast($cast_as)
++    {
++        throw new Exception(
++            'Method stream_select() cannot be used',
++            1530103999
++        );
++    }
++
++    public function stream_close()
++    {
++        $this->invokeInternalStreamWrapper(
++            'fclose',
++            $this->internalResource
++        );
++    }
++
++    /**
++     * @return bool
++     */
++    public function stream_eof()
++    {
++        return $this->invokeInternalStreamWrapper(
++            'feof',
++            $this->internalResource
++        );
++    }
++
++    /**
++     * @return bool
++     */
++    public function stream_flush()
++    {
++        return $this->invokeInternalStreamWrapper(
++            'fflush',
++            $this->internalResource
++        );
++    }
++
++    /**
++     * @param int $operation
++     * @return bool
++     */
++    public function stream_lock($operation)
++    {
++        return $this->invokeInternalStreamWrapper(
++            'flock',
++            $this->internalResource,
++            $operation
++        );
++    }
++
++    /**
++     * @param string $path
++     * @param int $option
++     * @param string|int $value
++     * @return bool
++     */
++    public function stream_metadata($path, $option, $value)
++    {
++        $this->assert($path, Behavior::COMMAND_STEAM_METADATA);
++        if ($option === STREAM_META_TOUCH) {
++            return call_user_func_array(
++                array($this, 'invokeInternalStreamWrapper'),
++                array_merge(array('touch', $path), (array) $value)
++            );
++        }
++        if ($option === STREAM_META_OWNER_NAME || $option === STREAM_META_OWNER) {
++            return $this->invokeInternalStreamWrapper(
++                'chown',
++                $path,
++                $value
++            );
++        }
++        if ($option === STREAM_META_GROUP_NAME || $option === STREAM_META_GROUP) {
++            return $this->invokeInternalStreamWrapper(
++                'chgrp',
++                $path,
++                $value
++            );
++        }
++        if ($option === STREAM_META_ACCESS) {
++            return $this->invokeInternalStreamWrapper(
++                'chmod',
++                $path,
++                $value
++            );
++        }
++        return false;
++    }
++
++    /**
++     * @param string $path
++     * @param string $mode
++     * @param int $options
++     * @param string|null $opened_path
++     * @return bool
++     */
++    public function stream_open(
++        $path,
++        $mode,
++        $options,
++        &$opened_path = null
++    ) {
++        $this->assert($path, Behavior::COMMAND_STREAM_OPEN);
++        $arguments = array($path, $mode, (bool) ($options & STREAM_USE_PATH));
++        // only add stream context for non include/require calls
++        if (!($options & static::STREAM_OPEN_FOR_INCLUDE)) {
++            $arguments[] = $this->context;
++        // work around https://bugs.php.net/bug.php?id=66569
++        // for including files from Phar stream with OPcache enabled
++        } else {
++            Helper::resetOpCache();
++        }
++        $this->internalResource = call_user_func_array(
++            array($this, 'invokeInternalStreamWrapper'),
++            array_merge(array('fopen'), $arguments)
++        );
++        if (!is_resource($this->internalResource)) {
++            return false;
++        }
++        if ($opened_path !== null) {
++            $metaData = stream_get_meta_data($this->internalResource);
++            $opened_path = $metaData['uri'];
++        }
++        return true;
++    }
++
++    /**
++     * @param int $count
++     * @return string
++     */
++    public function stream_read($count)
++    {
++        return $this->invokeInternalStreamWrapper(
++            'fread',
++            $this->internalResource,
++            $count
++        );
++    }
++
++    /**
++     * @param int $offset
++     * @param int $whence
++     * @return bool
++     */
++    public function stream_seek($offset, $whence = SEEK_SET)
++    {
++        return $this->invokeInternalStreamWrapper(
++            'fseek',
++            $this->internalResource,
++            $offset,
++            $whence
++        ) !== -1;
++    }
++
++    /**
++     * @param int $option
++     * @param int $arg1
++     * @param int $arg2
++     * @return bool
++     */
++    public function stream_set_option($option, $arg1, $arg2)
++    {
++        if ($option === STREAM_OPTION_BLOCKING) {
++            return $this->invokeInternalStreamWrapper(
++                'stream_set_blocking',
++                $this->internalResource,
++                $arg1
++            );
++        }
++        if ($option === STREAM_OPTION_READ_TIMEOUT) {
++            return $this->invokeInternalStreamWrapper(
++                'stream_set_timeout',
++                $this->internalResource,
++                $arg1,
++                $arg2
++            );
++        }
++        if ($option === STREAM_OPTION_WRITE_BUFFER) {
++            return $this->invokeInternalStreamWrapper(
++                'stream_set_write_buffer',
++                $this->internalResource,
++                $arg2
++            ) === 0;
++        }
++        return false;
++    }
++
++    /**
++     * @return array
++     */
++    public function stream_stat()
++    {
++        return $this->invokeInternalStreamWrapper(
++            'fstat',
++            $this->internalResource
++        );
++    }
++
++    /**
++     * @return int
++     */
++    public function stream_tell()
++    {
++        return $this->invokeInternalStreamWrapper(
++            'ftell',
++            $this->internalResource
++        );
++    }
++
++    /**
++     * @param int $new_size
++     * @return bool
++     */
++    public function stream_truncate($new_size)
++    {
++        return $this->invokeInternalStreamWrapper(
++            'ftruncate',
++            $this->internalResource,
++            $new_size
++        );
++    }
++
++    /**
++     * @param string $data
++     * @return int
++     */
++    public function stream_write($data)
++    {
++        return $this->invokeInternalStreamWrapper(
++            'fwrite',
++            $this->internalResource,
++            $data
++        );
++    }
++
++    /**
++     * @param string $path
++     * @return bool
++     */
++    public function unlink($path)
++    {
++        $this->assert($path, Behavior::COMMAND_UNLINK);
++        return $this->invokeInternalStreamWrapper(
++            'unlink',
++            $path,
++            $this->context
++        );
++    }
++
++    /**
++     * @param string $path
++     * @param int $flags
++     * @return array|false
++     */
++    public function url_stat($path, $flags)
++    {
++        $this->assert($path, Behavior::COMMAND_URL_STAT);
++        $functionName = $flags & STREAM_URL_STAT_QUIET ? '@stat' : 'stat';
++        return $this->invokeInternalStreamWrapper($functionName, $path);
++    }
++
++    /**
++     * @param string $path
++     * @param string $command
++     */
++    protected function assert($path, $command)
++    {
++        if ($this->resolveAssertable()->assert($path, $command) === true) {
++            return;
++        }
++
++        throw new Exception(
++            sprintf(
++                'Denied invocation of "%s" for command "%s"',
++                $path,
++                $command
++            ),
++            1535189880
++        );
++    }
++
++    /**
++     * @return Assertable
++     */
++    protected function resolveAssertable()
++    {
++        return Manager::instance();
++    }
++
++    /**
++     * Invokes commands on the native PHP Phar stream wrapper.
++     *
++     * @param string $functionName
++     * @param mixed ...$arguments
++     * @return mixed
++     */
++    private function invokeInternalStreamWrapper($functionName)
++    {
++        $arguments = func_get_args();
++        array_shift($arguments);
++        $silentExecution = $functionName{0} === '@';
++        $functionName = ltrim($functionName, '@');
++        $this->restoreInternalSteamWrapper();
++
++        try {
++            if ($silentExecution) {
++                $result = @call_user_func_array($functionName, $arguments);
++            } else {
++                $result = call_user_func_array($functionName, $arguments);
++            }
++        } catch (\Exception $exception) {
++            $this->registerStreamWrapper();
++            throw $exception;
++        } catch (\Throwable $throwable) {
++            $this->registerStreamWrapper();
++            throw $throwable;
++        }
++
++        $this->registerStreamWrapper();
++        return $result;
++    }
++
++    private function restoreInternalSteamWrapper()
++    {
++        stream_wrapper_restore('phar');
++    }
++
++    private function registerStreamWrapper()
++    {
++        stream_wrapper_unregister('phar');
++        stream_wrapper_register('phar', get_class($this));
++    }
++}
+diff --git a/modules/aggregator/aggregator.info b/modules/aggregator/aggregator.info
+index 2daff4d..d4ce00c 100644
+--- a/modules/aggregator/aggregator.info
++++ b/modules/aggregator/aggregator.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/block/block.info b/modules/block/block.info
+index 8f8fd2f..8fdd292 100644
+--- a/modules/block/block.info
++++ b/modules/block/block.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/blog/blog.info b/modules/blog/blog.info
+index 2cb7fe7..c174d97 100644
+--- a/modules/blog/blog.info
++++ b/modules/blog/blog.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/blogapi/blogapi.info b/modules/blogapi/blogapi.info
+index 80fe09b..53b540e 100644
+--- a/modules/blogapi/blogapi.info
++++ b/modules/blogapi/blogapi.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/book/book.info b/modules/book/book.info
+index addfcc3..a5d4bf7 100644
+--- a/modules/book/book.info
++++ b/modules/book/book.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/color/color.info b/modules/color/color.info
+index b9ab0cb..40f5414 100644
+--- a/modules/color/color.info
++++ b/modules/color/color.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/comment/comment.info b/modules/comment/comment.info
+index 9122ba8..ded85e7 100644
+--- a/modules/comment/comment.info
++++ b/modules/comment/comment.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/contact/contact.info b/modules/contact/contact.info
+index baee46f..6f85ab0 100644
+--- a/modules/contact/contact.info
++++ b/modules/contact/contact.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/dblog/dblog.info b/modules/dblog/dblog.info
+index 245aaa4..5018e42 100644
+--- a/modules/dblog/dblog.info
++++ b/modules/dblog/dblog.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/filter/filter.info b/modules/filter/filter.info
+index 5ae90c9..ede7fe7 100644
+--- a/modules/filter/filter.info
++++ b/modules/filter/filter.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/forum/forum.info b/modules/forum/forum.info
+index fe24994..c8c4af3 100644
+--- a/modules/forum/forum.info
++++ b/modules/forum/forum.info
+@@ -7,7 +7,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/help/help.info b/modules/help/help.info
+index 404417e..88c6b31 100644
+--- a/modules/help/help.info
++++ b/modules/help/help.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/locale/locale.info b/modules/locale/locale.info
+index 673a59c..376d00c 100644
+--- a/modules/locale/locale.info
++++ b/modules/locale/locale.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/menu/menu.info b/modules/menu/menu.info
+index abccf5b..8ae67ec 100644
+--- a/modules/menu/menu.info
++++ b/modules/menu/menu.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/node/node.info b/modules/node/node.info
+index a12804f..2f9aebb 100644
+--- a/modules/node/node.info
++++ b/modules/node/node.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/openid/openid.info b/modules/openid/openid.info
+index f2661cf..ea6bb60 100644
+--- a/modules/openid/openid.info
++++ b/modules/openid/openid.info
+@@ -5,7 +5,7 @@ package = Core - optional
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/path/path.info b/modules/path/path.info
+index 262653c..c122963 100644
+--- a/modules/path/path.info
++++ b/modules/path/path.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/php/php.info b/modules/php/php.info
+index b0fce64..74f37c7 100644
+--- a/modules/php/php.info
++++ b/modules/php/php.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/ping/ping.info b/modules/ping/ping.info
+index 9757542..2fb80f5 100644
+--- a/modules/ping/ping.info
++++ b/modules/ping/ping.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/poll/poll.info b/modules/poll/poll.info
+index 834aa11..4ce5f06 100644
+--- a/modules/poll/poll.info
++++ b/modules/poll/poll.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/profile/profile.info b/modules/profile/profile.info
+index 7720a56..c4a1237 100644
+--- a/modules/profile/profile.info
++++ b/modules/profile/profile.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/search/search.info b/modules/search/search.info
+index b87f19c..5c46960 100644
+--- a/modules/search/search.info
++++ b/modules/search/search.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/statistics/statistics.info b/modules/statistics/statistics.info
+index 72c0659..937a078 100644
+--- a/modules/statistics/statistics.info
++++ b/modules/statistics/statistics.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/syslog/syslog.info b/modules/syslog/syslog.info
+index 7cc1219..9348e77 100644
+--- a/modules/syslog/syslog.info
++++ b/modules/syslog/syslog.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/system/system.info b/modules/system/system.info
+index 4dd9fcb..91b4fa5 100644
+--- a/modules/system/system.info
++++ b/modules/system/system.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/taxonomy/taxonomy.info b/modules/taxonomy/taxonomy.info
+index 0ef1bec..e8cce55 100644
+--- a/modules/taxonomy/taxonomy.info
++++ b/modules/taxonomy/taxonomy.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/throttle/throttle.info b/modules/throttle/throttle.info
+index e51d45d..3b10a71 100644
+--- a/modules/throttle/throttle.info
++++ b/modules/throttle/throttle.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/tracker/tracker.info b/modules/tracker/tracker.info
+index 3c51716..ab0aaa0 100644
+--- a/modules/tracker/tracker.info
++++ b/modules/tracker/tracker.info
+@@ -6,7 +6,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/translation/translation.info b/modules/translation/translation.info
+index 5a1417a..1d53cce 100644
+--- a/modules/translation/translation.info
++++ b/modules/translation/translation.info
+@@ -6,7 +6,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/trigger/trigger.info b/modules/trigger/trigger.info
+index a861c54..969d5d5 100644
+--- a/modules/trigger/trigger.info
++++ b/modules/trigger/trigger.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/update/update.info b/modules/update/update.info
+index 727c3b0..a9c3f69 100644
+--- a/modules/update/update.info
++++ b/modules/update/update.info
+@@ -5,7 +5,7 @@ package = Core - optional
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/upload/upload.info b/modules/upload/upload.info
+index 27e119a..548a016 100644
+--- a/modules/upload/upload.info
++++ b/modules/upload/upload.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/user/user.info b/modules/user/user.info
+index 2694626..856b905 100644
+--- a/modules/user/user.info
++++ b/modules/user/user.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/bluemarine/bluemarine.info b/themes/bluemarine/bluemarine.info
+index 3afb7a8..6b86ecd 100644
+--- a/themes/bluemarine/bluemarine.info
++++ b/themes/bluemarine/bluemarine.info
+@@ -5,7 +5,7 @@ core = 6.x
+ engine = phptemplate
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/chameleon/chameleon.info b/themes/chameleon/chameleon.info
+index 9eeaf3a..9267115 100644
+--- a/themes/chameleon/chameleon.info
++++ b/themes/chameleon/chameleon.info
+@@ -12,7 +12,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/chameleon/marvin/marvin.info b/themes/chameleon/marvin/marvin.info
+index 16c1238..6f544e3 100644
+--- a/themes/chameleon/marvin/marvin.info
++++ b/themes/chameleon/marvin/marvin.info
+@@ -7,7 +7,7 @@ core = 6.x
+ base theme = chameleon
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/garland/garland.info b/themes/garland/garland.info
+index 44d7054..05e8c65 100644
+--- a/themes/garland/garland.info
++++ b/themes/garland/garland.info
+@@ -7,7 +7,7 @@ stylesheets[all][] = style.css
+ stylesheets[print][] = print.css
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/garland/minnelli/minnelli.info b/themes/garland/minnelli/minnelli.info
+index 37c9522..deb913f 100644
+--- a/themes/garland/minnelli/minnelli.info
++++ b/themes/garland/minnelli/minnelli.info
+@@ -6,7 +6,7 @@ base theme = garland
+ stylesheets[all][] = minnelli.css
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/pushbutton/pushbutton.info b/themes/pushbutton/pushbutton.info
+index 4663a84..c06e701 100644
+--- a/themes/pushbutton/pushbutton.info
++++ b/themes/pushbutton/pushbutton.info
+@@ -5,7 +5,7 @@ core = 6.x
+ engine = phptemplate
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p6"
++version = "6.38-p7"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
