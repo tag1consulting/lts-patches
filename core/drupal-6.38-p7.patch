@@ -1737,6 +1737,19 @@ index 4dd9fcb..91b4fa5 100644
  project = "drupal"
  datestamp = "1456343372"
  
+diff --git a/modules/system/system.module b/modules/system/system.module
+index c269f77..632de8b 100644
+--- a/modules/system/system.module
++++ b/modules/system/system.module
+@@ -8,7 +8,7 @@
+ /**
+  * The current system version.
+  */
+-define('VERSION', '6.38-p5');
++define('VERSION', '6.38-p7');
+ 
+ /**
+  * Core API compatibility.
 diff --git a/modules/taxonomy/taxonomy.info b/modules/taxonomy/taxonomy.info
 index 0ef1bec..e8cce55 100644
 --- a/modules/taxonomy/taxonomy.info
