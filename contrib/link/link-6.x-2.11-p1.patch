@@ -1,0 +1,28 @@
+diff --git a/link.inc b/link.inc
+index 421ecc3..6328f66 100644
+--- a/link.inc
++++ b/link.inc
+@@ -43,6 +43,10 @@ function _link_validate(&$item, $delta, $field, $node, &$optional_field_found) {
+   // neither of these keys are certain to be set
+   $test = $item + array('url' => NULL, 'title' => NULL);
+ 
++  if (isset($test['attributes']) && is_string($test['attributes'])) {
++    form_set_error($field['field_name'] .']['. $delta .'][url', t('String values are not acceptable for attributes.'));
++  }
++
+   if ($test['url'] && !(isset($field['widget']['default_value'][$delta]['url']) && $test['url'] == $field['widget']['default_value'][$delta]['url'] && !$field['required'])) {
+     // Validate the link.
+     if (link_validate_url(trim($test['url'])) == FALSE) {
+diff --git a/link.info b/link.info
+index 799424d..c0ffbb4 100644
+--- a/link.info
++++ b/link.info
+@@ -7,7 +7,7 @@ files[] = link.migrate.inc
+ 
+ 
+ ; Information added by Drupal.org packaging script on 2014-02-28
+-version = "6.x-2.11"
++version = "6.x-2.11-p1"
+ core = "6.x"
+ project = "link"
+ datestamp = "1393559923"
