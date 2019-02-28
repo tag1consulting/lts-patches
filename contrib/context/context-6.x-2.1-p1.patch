@@ -1,0 +1,61 @@
+diff --git a/context.info b/context.info
+index 20444ac..ac229ac 100644
+--- a/context.info
++++ b/context.info
+@@ -4,7 +4,7 @@ description = "Provide modules with a cache that lasts for a single page request
+ package = Context
+ core = "6.x"
+ ; Information added by drupal.org packaging script on 2010-12-25
+-version = "6.x-2.1"
++version = "6.x-2.1-p1"
+ core = "6.x"
+ project = "context"
+ datestamp = "1293239523"
+diff --git a/context_contrib/context_contrib.info b/context_contrib/context_contrib.info
+index de33b0b..fb8d874 100644
+--- a/context_contrib/context_contrib.info
++++ b/context_contrib/context_contrib.info
+@@ -5,7 +5,7 @@ dependencies[] = context
+ package = Context
+ core = "6.x"
+ ; Information added by drupal.org packaging script on 2010-12-25
+-version = "6.x-2.1"
++version = "6.x-2.1-p1"
+ core = "6.x"
+ project = "context"
+ datestamp = "1293239523"
+diff --git a/context_ui/context_ui.info b/context_ui/context_ui.info
+index 3636df0..d55ae9d 100644
+--- a/context_ui/context_ui.info
++++ b/context_ui/context_ui.info
+@@ -6,7 +6,7 @@ package = Context
+ core = "6.x"
+ 
+ ; Information added by drupal.org packaging script on 2010-12-25
+-version = "6.x-2.1"
++version = "6.x-2.1-p1"
+ core = "6.x"
+ project = "context"
+ datestamp = "1293239523"
+diff --git a/context_ui/context_ui.js b/context_ui/context_ui.js
+index 3477bd9..efaf1ea 100644
+--- a/context_ui/context_ui.js
++++ b/context_ui/context_ui.js
+@@ -46,7 +46,7 @@ Drupal.behaviors.context_ui = function(context) {
+     $(this).click(function() {
+       // Retrieve region & block id from row
+       var region = $(this).parents('table').attr('id').substr(18);
+-      var bid = $(this).parents('tr').eq(0).remove().attr('id');
++      var bid = Drupal.checkPlain($(this).parents('tr').eq(0).remove().attr('id'));
+ 
+       // Return this block to the selector
+       $('div.context-ui-block-selector input[value='+bid+']').attr('checked', 0).parents('div.form-item').eq(0).show();
+@@ -57,7 +57,7 @@ Drupal.behaviors.context_ui = function(context) {
+     });
+ 
+     // Hide blocks in the selector that are enabled
+-    var bid = $(this).parents('tr').eq(0).attr('id');
++    var bid = Drupal.checkPlain($(this).parents('tr').eq(0).attr('id'));
+     $('div.context-ui-block-selector input[value='+bid+']').parents('div.form-item').eq(0).hide();
+     $(this).addClass('contextui-processed');
+   });
