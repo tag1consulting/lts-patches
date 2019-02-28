@@ -1,0 +1,52 @@
+diff --git a/context.info b/context.info
+index 118ead2..4567263 100644
+--- a/context.info
++++ b/context.info
+@@ -5,7 +5,7 @@ package = "Context"
+ core = "6.x"
+ 
+ ; Information added by drupal.org packaging script on 2013-10-17
+-version = "6.x-3.3"
++version = "6.x-3.3-p1"
+ core = "6.x"
+ project = "context"
+ datestamp = "1381976672"
+diff --git a/context_layouts/context_layouts.info b/context_layouts/context_layouts.info
+index 33fbe4c..67bf04d 100644
+--- a/context_layouts/context_layouts.info
++++ b/context_layouts/context_layouts.info
+@@ -5,7 +5,7 @@ package = "Context"
+ core = "6.x"
+ 
+ ; Information added by drupal.org packaging script on 2013-10-17
+-version = "6.x-3.3"
++version = "6.x-3.3-p1"
+ core = "6.x"
+ project = "context"
+ datestamp = "1381976672"
+diff --git a/context_ui/context_ui.info b/context_ui/context_ui.info
+index e081be6..1b67ecc 100644
+--- a/context_ui/context_ui.info
++++ b/context_ui/context_ui.info
+@@ -4,7 +4,7 @@ dependencies[] = context
+ package = Context
+ core = "6.x"
+ ; Information added by drupal.org packaging script on 2013-10-17
+-version = "6.x-3.3"
++version = "6.x-3.3-p1"
+ core = "6.x"
+ project = "context"
+ datestamp = "1381976672"
+diff --git a/plugins/context_reaction_block.js b/plugins/context_reaction_block.js
+index 67e2031..78508bd 100644
+--- a/plugins/context_reaction_block.js
++++ b/plugins/context_reaction_block.js
+@@ -64,7 +64,7 @@ DrupalContextBlockForm = function(blockForm) {
+ 
+     // Hide enabled blocks from selector that are used
+     $('table.context-blockform-region tr').each(function() {
+-      var bid = $(this).attr('id');
++      var bid = Drupal.checkPlain($(this).attr('id'));
+       $('div.context-blockform-selector input[value='+bid+']').parents('div.form-item').eq(0).hide();
+     });
+     // Show blocks in selector that are unused
