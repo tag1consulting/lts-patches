@@ -1,0 +1,83 @@
+diff --git a/auth/services_oauth/services_oauth.info b/auth/services_oauth/services_oauth.info
+index e3ba757..f1e0dca 100644
+--- a/auth/services_oauth/services_oauth.info
++++ b/auth/services_oauth/services_oauth.info
+@@ -6,7 +6,7 @@ dependencies[] = oauth_common
+ core = 6.x
+ php = 5.2
+ ; Information added by drupal.org packaging script on 2012-11-15
+-version = "6.x-3.3-p1"
++version = "6.x-3.3-p2"
+ core = "6.x"
+ project = "services"
+ datestamp = "1353015202"
+diff --git a/servers/rest_server/formats/xcal_format.info b/servers/rest_server/formats/xcal_format.info
+index a7e6865..d2917b1 100644
+--- a/servers/rest_server/formats/xcal_format.info
++++ b/servers/rest_server/formats/xcal_format.info
+@@ -4,7 +4,7 @@ package = Services
+ core = 6.x
+ php = 5.x
+ ; Information added by drupal.org packaging script on 2012-11-15
+-version = "6.x-3.3-p1"
++version = "6.x-3.3-p2"
+ core = "6.x"
+ project = "services"
+ datestamp = "1353015202"
+diff --git a/servers/rest_server/rest_server.info b/servers/rest_server/rest_server.info
+index 8e6ea0e..cecfb34 100644
+--- a/servers/rest_server/rest_server.info
++++ b/servers/rest_server/rest_server.info
+@@ -6,7 +6,7 @@ dependencies[] = autoload
+ dependencies[] = libraries
+ core = 6.x
+ ; Information added by drupal.org packaging script on 2012-11-15
+-version = "6.x-3.3-p1"
++version = "6.x-3.3-p2"
+ core = "6.x"
+ project = "services"
+ datestamp = "1353015202"
+diff --git a/servers/xmlrpc_server/xmlrpc_server.info b/servers/xmlrpc_server/xmlrpc_server.info
+index cdc004c..535eab7 100644
+--- a/servers/xmlrpc_server/xmlrpc_server.info
++++ b/servers/xmlrpc_server/xmlrpc_server.info
+@@ -4,7 +4,7 @@ package = Services - servers
+ dependencies[] = services
+ core = 6.x
+ ; Information added by drupal.org packaging script on 2012-11-15
+-version = "6.x-3.3-p1"
++version = "6.x-3.3-p2"
+ core = "6.x"
+ project = "services"
+ datestamp = "1353015202"
+diff --git a/services.info b/services.info
+index eb82f8d..93ffa6e 100644
+--- a/services.info
++++ b/services.info
+@@ -5,7 +5,7 @@ core = 6.x
+ php = 5.x
+ dependencies[] = ctools
+ ; Information added by drupal.org packaging script on 2012-11-15
+-version = "6.x-3.3-p1"
++version = "6.x-3.3-p2"
+ core = "6.x"
+ project = "services"
+ datestamp = "1353015202"
+diff --git a/services.module b/services.module
+index e327cef..35115f6 100644
+--- a/services.module
++++ b/services.module
+@@ -507,12 +507,11 @@ function services_resources_as_procedures($resource, $resource_name) {
+ function services_resource_build_index_query($schema, $order, $page, $fields, $service_params = array(), $primary_table, $primary_field, $page_size, $resource) {
+   $where = array();
+   $query_params = array();
+-  $fields = db_escape_string($fields);
+ 
+   // need to append table prefix
+   if ($fields_array = explode(',', $fields)) {
+     foreach ($fields_array as &$field) {
+-      $field = $primary_table . '.' . trim($field);
++      $field = $primary_table . '.' . db_escape_table(trim($field)));
+     }
+     $fields = implode(',', $fields_array);
+   }
