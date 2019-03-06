@@ -64,7 +64,7 @@ index eb82f8d..93ffa6e 100644
  project = "services"
  datestamp = "1353015202"
 diff --git a/services.module b/services.module
-index e327cef..35115f6 100644
+index e327cef..7dcc8a6 100644
 --- a/services.module
 +++ b/services.module
 @@ -507,12 +507,11 @@ function services_resources_as_procedures($resource, $resource_name) {
@@ -77,7 +77,7 @@ index e327cef..35115f6 100644
    if ($fields_array = explode(',', $fields)) {
      foreach ($fields_array as &$field) {
 -      $field = $primary_table . '.' . trim($field);
-+      $field = $primary_table . '.' . db_escape_table(trim($field)));
++      $field = $primary_table . '.' . db_escape_table(trim($field));
      }
      $fields = implode(',', $fields_array);
    }
