@@ -1,0 +1,51 @@
+diff --git a/handlers/views_handler_field_serialized.inc b/handlers/views_handler_field_serialized.inc
+index 75ca19a..5ba4a45 100644
+--- a/handlers/views_handler_field_serialized.inc
++++ b/handlers/views_handler_field_serialized.inc
+@@ -56,6 +56,6 @@ class views_handler_field_serialized extends views_handler_field {
+       return check_plain($value[$this->options['key']]);
+     }
+ 
+-    return $value;
++    return check_plain($value);
+   }
+ }
+diff --git a/views.info b/views.info
+index bdc8cd4..31303dd 100644
+--- a/views.info
++++ b/views.info
+@@ -4,7 +4,7 @@ package = Views
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2015-02-11
+-version = "6.x-3.2-p5"
++version = "6.x-3.2-p6"
+ core = "6.x"
+ project = "views"
+ datestamp = "1423647787"
+diff --git a/views_export/views_export.info b/views_export/views_export.info
+index 5523380..5c05692 100644
+--- a/views_export/views_export.info
++++ b/views_export/views_export.info
+@@ -6,7 +6,7 @@ dependencies[] = views
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2015-02-11
+-version = "6.x-3.2-p5"
++version = "6.x-3.2-p6"
+ core = "6.x"
+ project = "views"
+ datestamp = "1423647787"
+diff --git a/views_ui.info b/views_ui.info
+index 52eda6d..9621d6e 100644
+--- a/views_ui.info
++++ b/views_ui.info
+@@ -5,7 +5,7 @@ core = 6.x
+ dependencies[] = views
+ 
+ ; Information added by Drupal.org packaging script on 2015-02-11
+-version = "6.x-3.2-p5"
++version = "6.x-3.2-p6"
+ core = "6.x"
+ project = "views"
+ datestamp = "1423647787"
