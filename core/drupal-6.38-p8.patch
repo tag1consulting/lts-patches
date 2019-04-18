@@ -1,0 +1,712 @@
+diff --git a/includes/common.inc b/includes/common.inc
+index 9431bc8..4f2a4f3 100644
+--- a/includes/common.inc
++++ b/includes/common.inc
+@@ -2256,6 +2256,7 @@ function drupal_add_js($data = NULL, $type = 'module', $scope = 'header', $defer
+       $javascript['header'] = array(
+         'core' => array(
+           'misc/jquery.js' => array('cache' => TRUE, 'defer' => FALSE, 'preprocess' => TRUE),
++          'misc/jquery-extend-3.4.0.js' => array('cache' => TRUE, 'defer' => FALSE, 'preprocess' => TRUE),
+           'misc/drupal.js' => array('cache' => TRUE, 'defer' => FALSE, 'preprocess' => TRUE),
+         ),
+         'module' => array(),
+diff --git a/misc/jquery-extend-3.4.0.js b/misc/jquery-extend-3.4.0.js
+new file mode 100644
+index 0000000..179c097
+--- /dev/null
++++ b/misc/jquery-extend-3.4.0.js
+@@ -0,0 +1,174 @@
++/**
++ * For jQuery versions less than 3.4.0, this replaces the jQuery.extend
++ * function with the one from jQuery 3.4.0, slightly modified (documented
++ * below) to be compatible with older jQuery versions and browsers.
++ *
++ * This provides the Object.prototype pollution vulnerability fix to Drupal
++ * installations running older jQuery versions, including the versions shipped
++ * with Drupal core and https://www.drupal.org/project/jquery_update.
++ *
++ * @see https://github.com/jquery/jquery/pull/4333
++ */
++
++(function (jQuery) {
++
++// Do not override jQuery.extend() if the jQuery version is already >=3.4.0.
++var versionParts = jQuery.fn.jquery.split('.');
++var majorVersion = parseInt(versionParts[0]);
++var minorVersion = parseInt(versionParts[1]);
++var patchVersion = parseInt(versionParts[2]);
++var isPreReleaseVersion = (patchVersion.toString() !== versionParts[2]);
++if (
++  (majorVersion > 3) ||
++  (majorVersion === 3 && minorVersion > 4) ||
++  (majorVersion === 3 && minorVersion === 4 && patchVersion > 0) ||
++  (majorVersion === 3 && minorVersion === 4 && patchVersion === 0 && !isPreReleaseVersion)
++) {
++  return;
++}
++
++/**
++ * This adds some funtions from jQuery 1.4.4 (the default version used in
++ * Drupal 7) for when they aren't present, like when using jQuery 1.2.6 (the
++ * default version used in Drupal 6).
++ */
++
++if (typeof jQuery.type === 'undefined') {
++  var toString = Object.prototype.toString,
++      class2type = {};
++
++  // Populate the class2type map
++  jQuery.each("Boolean Number String Function Array Date RegExp Object".split(" "), function(i, name) {
++    class2type[ "[object " + name + "]" ] = name.toLowerCase();
++  });
++
++  jQuery.type = function (obj) {
++    return obj == null ?
++      String( obj ) :
++      class2type[ toString.call(obj) ] || "object";
++  };
++}
++
++if (typeof jQuery.isArray === 'undefined') {
++  jQuery.isArray = function (obj) {
++    return jQuery.type(obj) === "array";
++  };
++}
++
++if (typeof jQuery.isWindow === 'undefined') {
++  jQuery.isWindow = function (obj) {
++    return obj && typeof obj === "object" && "setInterval" in obj;
++  };
++}
++
++if (typeof jQuery.isPlainObject === 'undefined') {
++  var hasOwn = Object.prototype.hasOwnProperty;
++
++  jQuery.isPlainObject = function (obj) {
++    // Must be an Object.
++    // Because of IE, we also have to check the presence of the constructor property.
++    // Make sure that DOM nodes and window objects don't pass through, as well
++    if ( !obj || jQuery.type(obj) !== "object" || obj.nodeType || jQuery.isWindow( obj ) ) {
++      return false;
++    }
++
++    // Not own constructor property must be Object
++    if ( obj.constructor &&
++      !hasOwn.call(obj, "constructor") &&
++      !hasOwn.call(obj.constructor.prototype, "isPrototypeOf") ) {
++      return false;
++    }
++
++    // Own properties are enumerated firstly, so to speed up,
++    // if last one is own, then all properties are own.
++
++    var key;
++    for ( key in obj ) {}
++
++    return key === undefined || hasOwn.call( obj, key );
++  };
++}
++
++/**
++ * This is almost verbatim copied from jQuery 3.4.0.
++ *
++ * Only two minor changes have been made:
++ * - The call to isFunction() is changed to jQuery.isFunction().
++ * - The two calls to Array.isArray() is changed to jQuery.isArray().
++ *
++ * The above two changes ensure compatibility with all older jQuery versions
++ * (1.2.6 - 3.3.1) and older browser versions (e.g., IE8).
++ */
++jQuery.extend = jQuery.fn.extend = function() {
++  var options, name, src, copy, copyIsArray, clone,
++    target = arguments[ 0 ] || {},
++    i = 1,
++    length = arguments.length,
++    deep = false;
++
++  // Handle a deep copy situation
++  if ( typeof target === "boolean" ) {
++    deep = target;
++
++    // Skip the boolean and the target
++    target = arguments[ i ] || {};
++    i++;
++  }
++
++  // Handle case when target is a string or something (possible in deep copy)
++  if ( typeof target !== "object" && !jQuery.isFunction( target ) ) {
++    target = {};
++  }
++
++  // Extend jQuery itself if only one argument is passed
++  if ( i === length ) {
++    target = this;
++    i--;
++  }
++
++  for ( ; i < length; i++ ) {
++
++    // Only deal with non-null/undefined values
++    if ( ( options = arguments[ i ] ) != null ) {
++
++      // Extend the base object
++      for ( name in options ) {
++        copy = options[ name ];
++
++        // Prevent Object.prototype pollution
++        // Prevent never-ending loop
++        if ( name === "__proto__" || target === copy ) {
++          continue;
++        }
++
++        // Recurse if we're merging plain objects or arrays
++        if ( deep && copy && ( jQuery.isPlainObject( copy ) ||
++          ( copyIsArray = jQuery.isArray( copy ) ) ) ) {
++          src = target[ name ];
++
++          // Ensure proper type for the source value
++          if ( copyIsArray && !jQuery.isArray( src ) ) {
++            clone = [];
++          } else if ( !copyIsArray && !jQuery.isPlainObject( src ) ) {
++            clone = {};
++          } else {
++            clone = src;
++          }
++          copyIsArray = false;
++
++          // Never move original objects, clone them
++          target[ name ] = jQuery.extend( deep, clone, copy );
++
++          // Don't bring in undefined values
++        } else if ( copy !== undefined ) {
++          target[ name ] = copy;
++        }
++      }
++    }
++  }
++
++  // Return the modified object
++  return target;
++};
++
++})(jQuery);
+diff --git a/modules/aggregator/aggregator.info b/modules/aggregator/aggregator.info
+index d4ce00c..48f6581 100644
+--- a/modules/aggregator/aggregator.info
++++ b/modules/aggregator/aggregator.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/block/block.info b/modules/block/block.info
+index 8fdd292..79020b5 100644
+--- a/modules/block/block.info
++++ b/modules/block/block.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/blog/blog.info b/modules/blog/blog.info
+index c174d97..45d2088 100644
+--- a/modules/blog/blog.info
++++ b/modules/blog/blog.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/blogapi/blogapi.info b/modules/blogapi/blogapi.info
+index 53b540e..932e210 100644
+--- a/modules/blogapi/blogapi.info
++++ b/modules/blogapi/blogapi.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/book/book.info b/modules/book/book.info
+index a5d4bf7..cc58d99 100644
+--- a/modules/book/book.info
++++ b/modules/book/book.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/color/color.info b/modules/color/color.info
+index 40f5414..b0c7624 100644
+--- a/modules/color/color.info
++++ b/modules/color/color.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/comment/comment.info b/modules/comment/comment.info
+index ded85e7..d766402 100644
+--- a/modules/comment/comment.info
++++ b/modules/comment/comment.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/contact/contact.info b/modules/contact/contact.info
+index 6f85ab0..d2c7940 100644
+--- a/modules/contact/contact.info
++++ b/modules/contact/contact.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/dblog/dblog.info b/modules/dblog/dblog.info
+index 5018e42..1a2d2c7 100644
+--- a/modules/dblog/dblog.info
++++ b/modules/dblog/dblog.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/filter/filter.info b/modules/filter/filter.info
+index ede7fe7..467a1dd 100644
+--- a/modules/filter/filter.info
++++ b/modules/filter/filter.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/forum/forum.info b/modules/forum/forum.info
+index c8c4af3..613fa1c 100644
+--- a/modules/forum/forum.info
++++ b/modules/forum/forum.info
+@@ -7,7 +7,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/help/help.info b/modules/help/help.info
+index 88c6b31..349fc6b 100644
+--- a/modules/help/help.info
++++ b/modules/help/help.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/locale/locale.info b/modules/locale/locale.info
+index 376d00c..5bc6f75 100644
+--- a/modules/locale/locale.info
++++ b/modules/locale/locale.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/menu/menu.info b/modules/menu/menu.info
+index 8ae67ec..2044f3d 100644
+--- a/modules/menu/menu.info
++++ b/modules/menu/menu.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/node/node.info b/modules/node/node.info
+index 2f9aebb..5996c94 100644
+--- a/modules/node/node.info
++++ b/modules/node/node.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/openid/openid.info b/modules/openid/openid.info
+index ea6bb60..47b1957 100644
+--- a/modules/openid/openid.info
++++ b/modules/openid/openid.info
+@@ -5,7 +5,7 @@ package = Core - optional
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/path/path.info b/modules/path/path.info
+index c122963..3c56619 100644
+--- a/modules/path/path.info
++++ b/modules/path/path.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/php/php.info b/modules/php/php.info
+index 74f37c7..d85fea1 100644
+--- a/modules/php/php.info
++++ b/modules/php/php.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/ping/ping.info b/modules/ping/ping.info
+index 2fb80f5..2bc4a62 100644
+--- a/modules/ping/ping.info
++++ b/modules/ping/ping.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/poll/poll.info b/modules/poll/poll.info
+index 4ce5f06..e79a371 100644
+--- a/modules/poll/poll.info
++++ b/modules/poll/poll.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/profile/profile.info b/modules/profile/profile.info
+index c4a1237..117ecd6 100644
+--- a/modules/profile/profile.info
++++ b/modules/profile/profile.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/search/search.info b/modules/search/search.info
+index 5c46960..cdcd173 100644
+--- a/modules/search/search.info
++++ b/modules/search/search.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/statistics/statistics.info b/modules/statistics/statistics.info
+index 937a078..29091a3 100644
+--- a/modules/statistics/statistics.info
++++ b/modules/statistics/statistics.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/syslog/syslog.info b/modules/syslog/syslog.info
+index 9348e77..7bf6373 100644
+--- a/modules/syslog/syslog.info
++++ b/modules/syslog/syslog.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/system/system.info b/modules/system/system.info
+index 91b4fa5..a56d25a 100644
+--- a/modules/system/system.info
++++ b/modules/system/system.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/system/system.module b/modules/system/system.module
+index 632de8b..5182236 100644
+--- a/modules/system/system.module
++++ b/modules/system/system.module
+@@ -8,7 +8,7 @@
+ /**
+  * The current system version.
+  */
+-define('VERSION', '6.38-p7');
++define('VERSION', '6.38-p8');
+ 
+ /**
+  * Core API compatibility.
+diff --git a/modules/taxonomy/taxonomy.info b/modules/taxonomy/taxonomy.info
+index e8cce55..1857243 100644
+--- a/modules/taxonomy/taxonomy.info
++++ b/modules/taxonomy/taxonomy.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/throttle/throttle.info b/modules/throttle/throttle.info
+index 3b10a71..f48d8ea 100644
+--- a/modules/throttle/throttle.info
++++ b/modules/throttle/throttle.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/tracker/tracker.info b/modules/tracker/tracker.info
+index ab0aaa0..504ab0f 100644
+--- a/modules/tracker/tracker.info
++++ b/modules/tracker/tracker.info
+@@ -6,7 +6,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/translation/translation.info b/modules/translation/translation.info
+index 1d53cce..6fca1a5 100644
+--- a/modules/translation/translation.info
++++ b/modules/translation/translation.info
+@@ -6,7 +6,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/trigger/trigger.info b/modules/trigger/trigger.info
+index 969d5d5..5fd140d 100644
+--- a/modules/trigger/trigger.info
++++ b/modules/trigger/trigger.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/update/update.info b/modules/update/update.info
+index a9c3f69..ad996c9 100644
+--- a/modules/update/update.info
++++ b/modules/update/update.info
+@@ -5,7 +5,7 @@ package = Core - optional
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/upload/upload.info b/modules/upload/upload.info
+index 548a016..f4abf62 100644
+--- a/modules/upload/upload.info
++++ b/modules/upload/upload.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/user/user.info b/modules/user/user.info
+index 856b905..1612b60 100644
+--- a/modules/user/user.info
++++ b/modules/user/user.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/bluemarine/bluemarine.info b/themes/bluemarine/bluemarine.info
+index 6b86ecd..2577ee5 100644
+--- a/themes/bluemarine/bluemarine.info
++++ b/themes/bluemarine/bluemarine.info
+@@ -5,7 +5,7 @@ core = 6.x
+ engine = phptemplate
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/chameleon/chameleon.info b/themes/chameleon/chameleon.info
+index 9267115..d8899eb 100644
+--- a/themes/chameleon/chameleon.info
++++ b/themes/chameleon/chameleon.info
+@@ -12,7 +12,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/chameleon/marvin/marvin.info b/themes/chameleon/marvin/marvin.info
+index 6f544e3..48df35c 100644
+--- a/themes/chameleon/marvin/marvin.info
++++ b/themes/chameleon/marvin/marvin.info
+@@ -7,7 +7,7 @@ core = 6.x
+ base theme = chameleon
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/garland/garland.info b/themes/garland/garland.info
+index 05e8c65..f593a76 100644
+--- a/themes/garland/garland.info
++++ b/themes/garland/garland.info
+@@ -7,7 +7,7 @@ stylesheets[all][] = style.css
+ stylesheets[print][] = print.css
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/garland/minnelli/minnelli.info b/themes/garland/minnelli/minnelli.info
+index deb913f..0f477a2 100644
+--- a/themes/garland/minnelli/minnelli.info
++++ b/themes/garland/minnelli/minnelli.info
+@@ -6,7 +6,7 @@ base theme = garland
+ stylesheets[all][] = minnelli.css
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/pushbutton/pushbutton.info b/themes/pushbutton/pushbutton.info
+index c06e701..cf94e9f 100644
+--- a/themes/pushbutton/pushbutton.info
++++ b/themes/pushbutton/pushbutton.info
+@@ -5,7 +5,7 @@ core = 6.x
+ engine = phptemplate
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p7"
++version = "6.38-p8"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
