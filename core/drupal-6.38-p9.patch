@@ -1,0 +1,2584 @@
+diff --git a/CHANGELOG.txt b/CHANGELOG.txt
+index 3cb3a69..c8aa3bb 100644
+--- a/CHANGELOG.txt
++++ b/CHANGELOG.txt
+@@ -1,3 +1,23 @@
++Drupal 6.38-p9, 2019-05-08 - SA-CORE-2019-007
++
++This security release fixes third-party dependencies included in or required by Drupal core. Described in TYPO3-PSA-2019-007: By-passing protection of Phar Stream Wrapper Interceptor: https://typo3.org/security/advisory/typo3-psa-2019-007/
++
++Upstream reference:
++https://www.drupal.org/sa-core-2019-007
++
++
++Drupal 6.38-p8, 2019-04-17 - SA-CORE-2019-006
++
++The jQuery project released version 3.4.0, and as part of that, disclosed a security vulnerability that affects all prior versions. As described in their release notes:
++
++    jQuery 3.4.0 includes a fix for some unintended behavior when using jQuery.extend(true, {}, ...). If an unsanitized source object contained an enumerable __proto__ property, it could extend the native Object.prototype. This fix is included in jQuery 3.4.0, but patch diffs exist to patch previous jQuery versions.
++
++It's possible that this vulnerability is exploitable with some Drupal modules. As a precaution, this Drupal security release backports the fix to jQuery.extend(), without making any other changes to the jQuery version that is included in Drupal core or running on the site via some other module such as jQuery Update.
++
++Upstream reference:
++https://www.drupal.org/sa-core-2019-006
++
++
+ Drupal 6.38-p7, 2019-01-16 - SA-CORE-2019-002
+ 
+ A remote code execution vulnerability exists in PHP's built-in phar stream
+diff --git a/includes/file.phar.inc b/includes/file.phar.inc
+index 0e19890..f3b24d3 100644
+--- a/includes/file.phar.inc
++++ b/includes/file.phar.inc
+@@ -18,7 +18,21 @@ function file_register_phar_wrapper() {
+   include_once $directory . '/Helper.php';
+   include_once $directory . '/Manager.php';
+   include_once $directory . '/PharStreamWrapper.php';
++  include_once $directory . '/Collectable.php';
++  include_once $directory . '/Interceptor/ConjunctionInterceptor.php';
++  include_once $directory . '/Interceptor/PharMetaDataInterceptor.php';
++  include_once $directory . '/Phar/Container.php';
++  include_once $directory . '/Phar/DeserializationException.php';
++  include_once $directory . '/Phar/Manifest.php';
++  include_once $directory . '/Phar/Reader.php';
++  include_once $directory . '/Phar/ReaderException.php';
++  include_once $directory . '/Phar/Stub.php';
++  include_once $directory . '/Resolvable.php';
++  include_once $directory . '/Resolver/PharInvocation.php';
++  include_once $directory . '/Resolver/PharInvocationCollection.php';
++  include_once $directory . '/Resolver/PharInvocationResolver.php';
+   include_once './misc/typo3/drupal-security/PharExtensionInterceptor.php';
++  include_once './misc/brumann/polyfill-unserialize/src/Unserialize.php';
+ 
+   // Set up a stream wrapper to handle insecurities due to PHP's built-in
+   // phar stream wrapper.
+diff --git a/misc/brumann/polyfill-unserialize/.gitignore b/misc/brumann/polyfill-unserialize/.gitignore
+new file mode 100644
+index 0000000..767699f
+--- /dev/null
++++ b/misc/brumann/polyfill-unserialize/.gitignore
+@@ -0,0 +1,4 @@
++/vendor/
++/phpunit.xml
++/.composer.lock
++
+diff --git a/misc/brumann/polyfill-unserialize/.travis.yml b/misc/brumann/polyfill-unserialize/.travis.yml
+new file mode 100644
+index 0000000..352536f
+--- /dev/null
++++ b/misc/brumann/polyfill-unserialize/.travis.yml
+@@ -0,0 +1,20 @@
++language: php
++
++sudo: false
++
++php:
++  - '5.3'
++  - '5.4'
++  - '5.5'
++  - '5.6'
++  - '7.0'
++  - '7.1'
++
++before_install:
++  - phpenv config-rm xdebug.ini
++  - composer self-update
++
++install:
++  - composer install
++
++script: phpunit
+diff --git a/misc/brumann/polyfill-unserialize/LICENSE b/misc/brumann/polyfill-unserialize/LICENSE
+new file mode 100644
+index 0000000..0cb53d3
+--- /dev/null
++++ b/misc/brumann/polyfill-unserialize/LICENSE
+@@ -0,0 +1,21 @@
++MIT License
++
++Copyright (c) 2016 Denis Brumann
++
++Permission is hereby granted, free of charge, to any person obtaining a copy
++of this software and associated documentation files (the "Software"), to deal
++in the Software without restriction, including without limitation the rights
++to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++copies of the Software, and to permit persons to whom the Software is
++furnished to do so, subject to the following conditions:
++
++The above copyright notice and this permission notice shall be included in all
++copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++SOFTWARE.
+diff --git a/misc/brumann/polyfill-unserialize/README.md b/misc/brumann/polyfill-unserialize/README.md
+new file mode 100644
+index 0000000..bac25fe
+--- /dev/null
++++ b/misc/brumann/polyfill-unserialize/README.md
+@@ -0,0 +1,61 @@
++Polyfill unserialize [![Build Status](https://travis-ci.org/dbrumann/polyfill-unserialize.svg?branch=master)](https://travis-ci.org/dbrumann/polyfill-unserialize)
++===
++
++Backports unserialize options introduced in PHP 7.0 to older PHP versions.
++This was originally designed as a Proof of Concept for Symfony Issue [#21090](https://github.com/symfony/symfony/pull/21090).
++
++You can use this package in projects that rely on PHP versions older than PHP 7.0.
++In case you are using PHP 7.0+ the original `unserialize()` will be used instead.
++
++From the [documentation](https://secure.php.net/manual/en/function.unserialize.php):
++
++> Warning: Do not pass untrusted user input to unserialize(). Unserialization can
++> result in code being loaded and executed due to object instantiation
++> and autoloading, and a malicious user may be able to exploit this.
++
++This warning holds true even when `allowed_classes` is used.
++
++Requirements
++------------
++
++ - PHP 5.3+
++
++Installation
++------------
++
++You can install this package via composer:
++
++```
++composer require brumann/polyfill-unserialize "^1.0"
++```
++
++Known Issues
++------------
++
++There is a mismatch in behavior when `allowed_classes` in `$options` is not
++of the correct type (array or boolean). PHP 7.1 will issue a warning, whereas
++PHP 7.0 will not. I opted to copy the behavior of the former.
++
++Tests
++-----
++
++You can run the test suite using PHPUnit. It is intentionally not bundled as
++dev dependency to make sure this package has the lowest restrictions on the
++implementing system as possible.
++
++Please read the [PHPUnit Manual](https://phpunit.de/manual/current/en/installation.html)
++for information how to install it on your system.
++
++You can run the test suite as follows:
++
++```
++phpunit -c phpunit.xml.dist tests/
++```
++
++Contributing
++------------
++
++This package is considered feature complete. As such I will likely not update it
++unless there are security issues.
++
++Should you find any bugs or have questions, feel free to submit an Issue or a Pull Request.
+diff --git a/misc/brumann/polyfill-unserialize/composer.json b/misc/brumann/polyfill-unserialize/composer.json
+new file mode 100644
+index 0000000..ec4a2cf
+--- /dev/null
++++ b/misc/brumann/polyfill-unserialize/composer.json
+@@ -0,0 +1,26 @@
++{
++    "name": "brumann/polyfill-unserialize",
++    "description": "Backports unserialize options introduced in PHP 7.0 to older PHP versions.",
++    "type": "library",
++    "license": "MIT",
++    "authors": [
++        {
++            "name": "Denis Brumann",
++            "email": "denis.brumann@sensiolabs.de"
++        }
++    ],
++    "autoload": {
++        "psr-4": {
++            "Brumann\\Polyfill\\": "src/"
++        }
++    },
++    "autoload-dev": {
++        "psr-4": {
++            "Tests\\Brumann\\Polyfill\\": "tests/"
++        }
++    },
++    "minimum-stability": "stable",
++    "require": {
++        "php": "^5.3|^7.0"
++    }
++}
+diff --git a/misc/brumann/polyfill-unserialize/phpunit.xml.dist b/misc/brumann/polyfill-unserialize/phpunit.xml.dist
+new file mode 100644
+index 0000000..8fea1ba
+--- /dev/null
++++ b/misc/brumann/polyfill-unserialize/phpunit.xml.dist
+@@ -0,0 +1,25 @@
++<?xml version="1.0" encoding="UTF-8"?>
++
++<phpunit
++    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++    xsi:noNamespaceSchemaLocation="http://schema.phpunit.de/4.1/phpunit.xsd"
++    backupGlobals="false"
++    colors="true"
++    bootstrap="vendor/autoload.php"
++>
++    <php>
++        <ini name="error_reporting" value="-1" />
++    </php>
++
++    <testsuites>
++        <testsuite name="Brumann\Polyfill Test Suite">
++            <directory>./tests/</directory>
++        </testsuite>
++    </testsuites>
++
++    <filter>
++        <whitelist>
++            <directory>./src/</directory>
++        </whitelist>
++    </filter>
++</phpunit>
+diff --git a/misc/brumann/polyfill-unserialize/src/Unserialize.php b/misc/brumann/polyfill-unserialize/src/Unserialize.php
+new file mode 100644
+index 0000000..e025d55
+--- /dev/null
++++ b/misc/brumann/polyfill-unserialize/src/Unserialize.php
+@@ -0,0 +1,58 @@
++<?php
++
++namespace Brumann\Polyfill;
++
++final class Unserialize
++{
++    /**
++     * @see https://secure.php.net/manual/en/function.unserialize.php
++     *
++     * @param string $serialized Serialized data
++     * @param array $options Associative array containing options
++     *
++     * @return mixed
++     */
++    public static function unserialize($serialized, array $options = array())
++    {
++        if (PHP_VERSION_ID >= 70000) {
++            return \unserialize($serialized, $options);
++        }
++        if (!array_key_exists('allowed_classes', $options)) {
++            $options['allowed_classes'] = true;
++        }
++        $allowedClasses = $options['allowed_classes'];
++        if (true === $allowedClasses) {
++            return \unserialize($serialized);
++        }
++        if (false === $allowedClasses) {
++            $allowedClasses = array();
++        }
++        if (!is_array($allowedClasses)) {
++            trigger_error(
++                'unserialize(): allowed_classes option should be array or boolean',
++                E_USER_WARNING
++            );
++            $allowedClasses = array();
++        }
++
++        $sanitizedSerialized = preg_replace_callback(
++            '/(^|;)O:\d+:"([^"]*)":(\d+):{/',
++            function ($match) use ($allowedClasses) {
++                list($completeMatch, $leftBorder, $className, $objectSize) = $match;
++                if (in_array($className, $allowedClasses)) {
++                    return $completeMatch;
++                } else {
++                    return sprintf(
++                        '%sO:22:"__PHP_Incomplete_Class":%d:{s:27:"__PHP_Incomplete_Class_Name";%s',
++                        $leftBorder,
++                        $objectSize + 1, // size of object + 1 for added string
++                        \serialize($className)
++                    );
++                }
++            },
++            $serialized
++        );
++
++        return \unserialize($sanitizedSerialized);
++    }
++}
+diff --git a/misc/typo3/phar-stream-wrapper/.gitignore b/misc/typo3/phar-stream-wrapper/.gitignore
+new file mode 100644
+index 0000000..157ff0c
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/.gitignore
+@@ -0,0 +1,3 @@
++.idea
++vendor/
++composer.lock
+diff --git a/misc/typo3/phar-stream-wrapper/README.md b/misc/typo3/phar-stream-wrapper/README.md
+index b632784..179bb6f 100644
+--- a/misc/typo3/phar-stream-wrapper/README.md
++++ b/misc/typo3/phar-stream-wrapper/README.md
+@@ -63,7 +63,7 @@ adjusted to according requirements.
+ 
+ ```
+ $behavior = new \TYPO3\PharStreamWrapper\Behavior();
+-Manager::initialize(
++\TYPO3\PharStreamWrapper\Manager::initialize(
+     $behavior->withAssertion(new PharExtensionInterceptor())
+ );
+ 
+@@ -90,7 +90,7 @@ if (in_array('phar', stream_get_wrappers())) {
+   + `COMMAND_UNLINK`
+   + `COMMAND_URL_STAT`
+ 
+-## Interceptor
++## Interceptors
+ 
+ The following interceptor is shipped with the package and ready to use in order
+ to block any Phar invocation of files not having a `.phar` suffix. Besides that
+@@ -137,9 +137,72 @@ class PharExtensionInterceptor implements Assertable
+ }
+ ```
+ 
++### ConjunctionInterceptor
++
++This interceptor combines multiple interceptors implementing `Assertable`.
++It succeeds when all nested interceptors succeed as well (logical `AND`).
++
++```
++$behavior = new \TYPO3\PharStreamWrapper\Behavior();
++\TYPO3\PharStreamWrapper\Manager::initialize(
++    $behavior->withAssertion(new ConjunctionInterceptor(array(
++        new PharExtensionInterceptor(),
++        new PharMetaDataInterceptor()
++    )))
++);
++```
++
++### PharExtensionInterceptor
++
++This (basic) interceptor just checks whether the invoked Phar archive has
++an according `.phar` file extension. Resolving symbolic links as well as
++Phar internal alias resolving are considered as well.
++
++```
++$behavior = new \TYPO3\PharStreamWrapper\Behavior();
++\TYPO3\PharStreamWrapper\Manager::initialize(
++    $behavior->withAssertion(new PharExtensionInterceptor())
++);
++```
++
++### PharMetaDataInterceptor
++
++This interceptor is actually checking serialized Phar meta-data against
++PHP objects and would consider a Phar archive malicious in case not only
++scalar values are found. A custom low-level `Phar\Reader` is used in order to
++avoid using PHP's `Phar` object which would trigger the initial vulnerability.
++
++```
++$behavior = new \TYPO3\PharStreamWrapper\Behavior();
++\TYPO3\PharStreamWrapper\Manager::initialize(
++    $behavior->withAssertion(new PharMetaDataInterceptor())
++);
++```
++
++## Reader
++
++* `Phar\Reader::__construct(string $fileName)`: Creates low-level reader for Phar archive
++* `Phar\Reader::resolveContainer(): Phar\Container`: Resolves model representing Phar archive
++* `Phar\Container::getStub(): Phar\Stub`: Resolves (plain PHP) stub section of Phar archive
++* `Phar\Container::getManifest(): Phar\Manifest`: Resolves parsed Phar archive manifest as
++  documented at http://php.net/manual/en/phar.fileformat.manifestfile.php
++* `Phar\Stub::getMappedAlias(): string`: Resolves internal Phar archive alias defined in stub
++  using `Phar::mapPhar('alias.phar')` - actually the plain PHP source is analyzed here
++* `Phar\Manifest::getAlias(): string` - Resolves internal Phar archive alias defined in manifest
++  using `Phar::setAlias('alias.phar')`
++* `Phar\Manifest::getMetaData(): string`: Resolves serialized Phar archive meta-data
++* `Phar\Manifest::deserializeMetaData(): mixed`: Resolves deserialized Phar archive meta-data
++  containing only scalar values - in case an object is determined, an according
++  `Phar\DeserializationException` will be thrown
++
++```
++$reader = new Phar\Reader('example.phar');
++var_dump($reader->resolveContainer()->getManifest()->deserializeMetaData());
++```
++
+ ## Helper
+ 
+-* `Helper::determineBaseFile(string $path)`: Determines base file that can be
++* `Helper::determineBaseFile(string $path): string`: Determines base file that can be
+   accessed using the regular file system. For instance the following path
+   `phar:///home/user/bundle.phar/content.txt` would be resolved to
+   `/home/user/bundle.phar`.
+diff --git a/misc/typo3/phar-stream-wrapper/composer.json b/misc/typo3/phar-stream-wrapper/composer.json
+index d308f8c..8c22411 100644
+--- a/misc/typo3/phar-stream-wrapper/composer.json
++++ b/misc/typo3/phar-stream-wrapper/composer.json
+@@ -6,9 +6,13 @@
+     "homepage": "https://typo3.org/",
+     "keywords": ["php", "phar", "stream-wrapper", "security"],
+     "require": {
+-        "php": "^5.3.3|^7.0"
++        "php": "^5.3.3|^7.0",
++        "ext-fileinfo": "*",
++        "ext-json": "*",
++        "brumann/polyfill-unserialize": "^1.0"
+     },
+     "require-dev": {
++        "ext-xdebug": "*",
+         "phpunit/phpunit": "^4.8.36"
+     },
+     "autoload": {
+diff --git a/misc/typo3/phar-stream-wrapper/src/Collectable.php b/misc/typo3/phar-stream-wrapper/src/Collectable.php
+new file mode 100644
+index 0000000..4694dc9
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Collectable.php
+@@ -0,0 +1,37 @@
++<?php
++namespace TYPO3\PharStreamWrapper;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++use TYPO3\PharStreamWrapper\Resolver\PharInvocation;
++
++interface Collectable
++{
++    /**
++     * @param PharInvocation $invocation
++     * @return bool
++     */
++    public function has(PharInvocation $invocation);
++
++    /**
++     * @param PharInvocation $invocation
++     * @param null $flags
++     * @return bool
++     */
++    public function collect(PharInvocation $invocation, $flags = null);
++
++    /**
++     * @param callable $callback
++     * @param bool $reverse
++     * @return null|PharInvocation
++     */
++    public function findByCallback($callback, $reverse = false);
++}
+diff --git a/misc/typo3/phar-stream-wrapper/src/Helper.php b/misc/typo3/phar-stream-wrapper/src/Helper.php
+index 32d0da6..c074dde 100644
+--- a/misc/typo3/phar-stream-wrapper/src/Helper.php
++++ b/misc/typo3/phar-stream-wrapper/src/Helper.php
+@@ -11,6 +11,13 @@ namespace TYPO3\PharStreamWrapper;
+  * The TYPO3 project - inspiring people to share!
+  */
+ 
++/**
++ * Helper provides low-level tools on file name resolving. However it does not
++ * (and should not) maintain any runtime state information. In order to resolve
++ * Phar archive paths according resolvers have to be used.
++ *
++ * @see \TYPO3\PharStreamWrapper\Resolvable::resolve()
++ */
+ class Helper
+ {
+     /*
+@@ -54,6 +61,15 @@ class Helper
+         return null;
+     }
+ 
++    /**
++     * @param string $path
++     * @return bool
++     */
++    public static function hasPharPrefix($path)
++    {
++        return stripos($path, 'phar://') === 0;
++    }
++
+     /**
+      * @param string $path
+      * @return string
+@@ -61,7 +77,7 @@ class Helper
+     public static function removePharPrefix($path)
+     {
+         $path = trim($path);
+-        if (stripos($path, 'phar://') !== 0) {
++        if (!static::hasPharPrefix($path)) {
+             return $path;
+         }
+         return substr($path, 7);
+@@ -77,7 +93,7 @@ class Helper
+     public static function normalizePath($path)
+     {
+         return rtrim(
+-            static::getCanonicalPath(
++            static::normalizeWindowsPath(
+                 static::removePharPrefix($path)
+             ),
+             '/'
+diff --git a/misc/typo3/phar-stream-wrapper/src/Interceptor/ConjunctionInterceptor.php b/misc/typo3/phar-stream-wrapper/src/Interceptor/ConjunctionInterceptor.php
+new file mode 100644
+index 0000000..b9c665e
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Interceptor/ConjunctionInterceptor.php
+@@ -0,0 +1,88 @@
++<?php
++namespace TYPO3\PharStreamWrapper\Interceptor;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++use TYPO3\PharStreamWrapper\Assertable;
++use TYPO3\PharStreamWrapper\Exception;
++
++class ConjunctionInterceptor implements Assertable
++{
++    /**
++     * @var Assertable[]
++     */
++    private $assertions;
++
++    public function __construct(array $assertions)
++    {
++        $this->assertAssertions($assertions);
++        $this->assertions = $assertions;
++    }
++
++    /**
++     * Executes assertions based on all contained assertions.
++     *
++     * @param string $path
++     * @param string $command
++     * @return bool
++     * @throws Exception
++     */
++    public function assert($path, $command)
++    {
++        if ($this->invokeAssertions($path, $command)) {
++            return true;
++        }
++        throw new Exception(
++            sprintf(
++                'Assertion failed in "%s"',
++                $path
++            ),
++            1539625084
++        );
++    }
++
++    /**
++     * @param Assertable[] $assertions
++     */
++    private function assertAssertions(array $assertions)
++    {
++        foreach ($assertions as $assertion) {
++            if (!$assertion instanceof Assertable) {
++                throw new \InvalidArgumentException(
++                    sprintf(
++                        'Instance %s must implement Assertable',
++                        get_class($assertion)
++                    ),
++                    1539624719
++                );
++            }
++        }
++    }
++
++    /**
++     * @param string $path
++     * @param string $command
++     * @return bool
++     */
++    private function invokeAssertions($path, $command)
++    {
++        try {
++            foreach ($this->assertions as $assertion) {
++                if (!$assertion->assert($path, $command)) {
++                    return false;
++                }
++            }
++        } catch (Exception $exception) {
++            return false;
++        }
++        return true;
++    }
++}
+diff --git a/misc/typo3/phar-stream-wrapper/src/Interceptor/PharExtensionInterceptor.php b/misc/typo3/phar-stream-wrapper/src/Interceptor/PharExtensionInterceptor.php
+index db500af..6e7aeed 100644
+--- a/misc/typo3/phar-stream-wrapper/src/Interceptor/PharExtensionInterceptor.php
++++ b/misc/typo3/phar-stream-wrapper/src/Interceptor/PharExtensionInterceptor.php
+@@ -12,8 +12,8 @@ namespace TYPO3\PharStreamWrapper\Interceptor;
+  */
+ 
+ use TYPO3\PharStreamWrapper\Assertable;
+-use TYPO3\PharStreamWrapper\Helper;
+ use TYPO3\PharStreamWrapper\Exception;
++use TYPO3\PharStreamWrapper\Manager;
+ 
+ class PharExtensionInterceptor implements Assertable
+ {
+@@ -45,11 +45,11 @@ class PharExtensionInterceptor implements Assertable
+      */
+     private function baseFileContainsPharExtension($path)
+     {
+-        $baseFile = Helper::determineBaseFile($path);
+-        if ($baseFile === null) {
++        $invocation = Manager::instance()->resolve($path);
++        if ($invocation === null) {
+             return false;
+         }
+-        $fileExtension = pathinfo($baseFile, PATHINFO_EXTENSION);
++        $fileExtension = pathinfo($invocation->getBaseName(), PATHINFO_EXTENSION);
+         return strtolower($fileExtension) === 'phar';
+     }
+ }
+diff --git a/misc/typo3/phar-stream-wrapper/src/Interceptor/PharMetaDataInterceptor.php b/misc/typo3/phar-stream-wrapper/src/Interceptor/PharMetaDataInterceptor.php
+new file mode 100644
+index 0000000..e981dc6
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Interceptor/PharMetaDataInterceptor.php
+@@ -0,0 +1,73 @@
++<?php
++namespace TYPO3\PharStreamWrapper\Interceptor;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++use TYPO3\PharStreamWrapper\Assertable;
++use TYPO3\PharStreamWrapper\Exception;
++use TYPO3\PharStreamWrapper\Manager;
++use TYPO3\PharStreamWrapper\Phar\DeserializationException;
++use TYPO3\PharStreamWrapper\Phar\Reader;
++
++/**
++ * @internal Experimental implementation of checking against serialized objects in Phar meta-data
++ * @internal This functionality has not been 100% pentested...
++ */
++class PharMetaDataInterceptor implements Assertable
++{
++    /**
++     * Determines whether the according Phar archive contains
++     * (potential insecure) serialized objects.
++     *
++     * @param string $path
++     * @param string $command
++     * @return bool
++     * @throws Exception
++     */
++    public function assert($path, $command)
++    {
++        if ($this->baseFileDoesNotHaveMetaDataIssues($path)) {
++            return true;
++        }
++        throw new Exception(
++            sprintf(
++                'Problematic meta-data in "%s"',
++                $path
++            ),
++            1539632368
++        );
++    }
++
++    /**
++     * @param string $path
++     * @return bool
++     */
++    private function baseFileDoesNotHaveMetaDataIssues($path)
++    {
++        $invocation = Manager::instance()->resolve($path);
++        if ($invocation === null) {
++            return false;
++        }
++        // directly return in case invocation was checked before
++        if ($invocation->getVariable(__CLASS__) === true) {
++            return true;
++        }
++        // otherwise analyze meta-data
++        try {
++            $reader = new Reader($invocation->getBaseName());
++            $reader->resolveContainer()->getManifest()->deserializeMetaData();
++            $invocation->setVariable(__CLASS__, true);
++        } catch (DeserializationException $exception) {
++            return false;
++        }
++        return true;
++    }
++}
+diff --git a/misc/typo3/phar-stream-wrapper/src/Manager.php b/misc/typo3/phar-stream-wrapper/src/Manager.php
+index 1eb9735..f938ad9 100644
+--- a/misc/typo3/phar-stream-wrapper/src/Manager.php
++++ b/misc/typo3/phar-stream-wrapper/src/Manager.php
+@@ -11,7 +11,11 @@ namespace TYPO3\PharStreamWrapper;
+  * The TYPO3 project - inspiring people to share!
+  */
+ 
+-class Manager implements Assertable
++use TYPO3\PharStreamWrapper\Resolver\PharInvocation;
++use TYPO3\PharStreamWrapper\Resolver\PharInvocationCollection;
++use TYPO3\PharStreamWrapper\Resolver\PharInvocationResolver;
++
++class Manager
+ {
+     /**
+      * @var self
+@@ -23,14 +27,29 @@ class Manager implements Assertable
+      */
+     private $behavior;
+ 
++    /**
++     * @var Resolvable
++     */
++    private $resolver;
++
++    /**
++     * @var Collectable
++     */
++    private $collection;
++
+     /**
+      * @param Behavior $behaviour
++     * @param Resolvable $resolver
++     * @param Collectable $collection
+      * @return self
+      */
+-    public static function initialize(Behavior $behaviour)
+-    {
++    public static function initialize(
++        Behavior $behaviour,
++        Resolvable $resolver = null,
++        Collectable $collection = null
++    ) {
+         if (self::$instance === null) {
+-            self::$instance = new self($behaviour);
++            self::$instance = new self($behaviour, $resolver, $collection);
+             return self::$instance;
+         }
+         throw new \LogicException(
+@@ -67,9 +86,22 @@ class Manager implements Assertable
+ 
+     /**
+      * @param Behavior $behaviour
++     * @param Resolvable $resolver
++     * @param Collectable $collection
+      */
+-    private function __construct(Behavior $behaviour)
+-    {
++    private function __construct(
++        Behavior $behaviour,
++        Resolvable $resolver = null,
++        Collectable $collection = null
++    ) {
++        if ($collection === null) {
++            $collection = new PharInvocationCollection();
++        }
++        if ($resolver === null) {
++            $resolver = new PharInvocationResolver();
++        }
++        $this->collection = $collection;
++        $this->resolver = $resolver;
+         $this->behavior = $behaviour;
+     }
+ 
+@@ -82,4 +114,22 @@ class Manager implements Assertable
+     {
+         return $this->behavior->assert($path, $command);
+     }
++
++    /**
++     * @param string $path
++     * @param null|int $flags
++     * @return null|PharInvocation
++     */
++    public function resolve($path, $flags = null)
++    {
++        return $this->resolver->resolve($path, $flags);
++    }
++
++    /**
++     * @return Collectable
++     */
++    public function getCollection()
++    {
++        return $this->collection;
++    }
+ }
+diff --git a/misc/typo3/phar-stream-wrapper/src/Phar/Container.php b/misc/typo3/phar-stream-wrapper/src/Phar/Container.php
+new file mode 100644
+index 0000000..f02387d
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Phar/Container.php
+@@ -0,0 +1,59 @@
++<?php
++namespace TYPO3\PharStreamWrapper\Phar;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++class Container
++{
++    /**
++     * @var Stub
++     */
++    private $stub;
++
++    /**
++     * @var Manifest
++     */
++    private $manifest;
++
++    /**
++     * @param Stub $stub
++     * @param Manifest $manifest
++     */
++    public function __construct(Stub $stub, Manifest $manifest)
++    {
++        $this->stub = $stub;
++        $this->manifest = $manifest;
++    }
++
++    /**
++     * @return Stub
++     */
++    public function getStub()
++    {
++        return $this->stub;
++    }
++
++    /**
++     * @return Manifest
++     */
++    public function getManifest()
++    {
++        return $this->manifest;
++    }
++
++    /**
++     * @return string
++     */
++    public function getAlias()
++    {
++        return $this->manifest->getAlias() ?: $this->stub->getMappedAlias();
++    }
++}
+diff --git a/misc/typo3/phar-stream-wrapper/src/Phar/DeserializationException.php b/misc/typo3/phar-stream-wrapper/src/Phar/DeserializationException.php
+new file mode 100644
+index 0000000..5a675d3
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Phar/DeserializationException.php
+@@ -0,0 +1,18 @@
++<?php
++namespace TYPO3\PharStreamWrapper\Phar;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++use TYPO3\PharStreamWrapper\Exception;
++
++class DeserializationException extends Exception
++{
++}
+diff --git a/misc/typo3/phar-stream-wrapper/src/Phar/Manifest.php b/misc/typo3/phar-stream-wrapper/src/Phar/Manifest.php
+new file mode 100644
+index 0000000..cf7a621
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Phar/Manifest.php
+@@ -0,0 +1,176 @@
++<?php
++namespace TYPO3\PharStreamWrapper\Phar;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++use Brumann\Polyfill\Unserialize;
++
++class Manifest
++{
++    /**
++     * @param string $content
++     * @return self
++     * @see http://php.net/manual/en/phar.fileformat.phar.php
++     */
++    public static function fromContent($content)
++    {
++        $target = new static();
++        $target->manifestLength = Reader::resolveFourByteLittleEndian($content, 0);
++        $target->amountOfFiles = Reader::resolveFourByteLittleEndian($content, 4);
++        $target->flags = Reader::resolveFourByteLittleEndian($content, 10);
++        $target->aliasLength = Reader::resolveFourByteLittleEndian($content, 14);
++        $target->alias = substr($content, 18, $target->aliasLength);
++        $target->metaDataLength = Reader::resolveFourByteLittleEndian($content, 18 + $target->aliasLength);
++        $target->metaData = substr($content, 22 + $target->aliasLength, $target->metaDataLength);
++
++        $apiVersionNibbles = Reader::resolveTwoByteBigEndian($content, 8);
++        $target->apiVersion = implode('.', array(
++            ($apiVersionNibbles & 0xf000) >> 12,
++            ($apiVersionNibbles & 0x0f00) >> 8,
++            ($apiVersionNibbles & 0x00f0) >> 4,
++        ));
++
++        return $target;
++    }
++
++    /**
++     * @var int
++     */
++    private $manifestLength;
++
++    /**
++     * @var int
++     */
++    private $amountOfFiles;
++
++    /**
++     * @var string
++     */
++    private $apiVersion;
++
++    /**
++     * @var int
++     */
++    private $flags;
++
++    /**
++     * @var int
++     */
++    private $aliasLength;
++
++    /**
++     * @var string
++     */
++    private $alias;
++
++    /**
++     * @var int
++     */
++    private $metaDataLength;
++
++    /**
++     * @var string
++     */
++    private $metaData;
++
++    /**
++     * Avoid direct instantiation.
++     */
++    private function __construct()
++    {
++    }
++
++    /**
++     * @return int
++     */
++    public function getManifestLength()
++    {
++        return $this->manifestLength;
++    }
++
++    /**
++     * @return int
++     */
++    public function getAmountOfFiles()
++    {
++        return $this->amountOfFiles;
++    }
++
++    /**
++     * @return string
++     */
++    public function getApiVersion()
++    {
++        return $this->apiVersion;
++    }
++
++    /**
++     * @return int
++     */
++    public function getFlags()
++    {
++        return $this->flags;
++    }
++
++    /**
++     * @return int
++     */
++    public function getAliasLength()
++    {
++        return $this->aliasLength;
++    }
++
++    /**
++     * @return string
++     */
++    public function getAlias()
++    {
++        return $this->alias;
++    }
++
++    /**
++     * @return int
++     */
++    public function getMetaDataLength()
++    {
++        return $this->metaDataLength;
++    }
++
++    /**
++     * @return string
++     */
++    public function getMetaData()
++    {
++        return $this->metaData;
++    }
++
++    /**
++     * @return mixed|null
++     */
++    public function deserializeMetaData()
++    {
++        if (empty($this->metaData)) {
++            return null;
++        }
++
++        $result = Unserialize::unserialize($this->metaData, array('allowed_classes' => false));
++
++        $serialized = json_encode($result);
++        if (strpos($serialized, '__PHP_Incomplete_Class_Name') !== false) {
++            throw new DeserializationException(
++                'Meta-data contains serialized object',
++                1539623382
++            );
++        }
++
++        return $result;
++    }
++}
+diff --git a/misc/typo3/phar-stream-wrapper/src/Phar/Reader.php b/misc/typo3/phar-stream-wrapper/src/Phar/Reader.php
+new file mode 100644
+index 0000000..32e516b
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Phar/Reader.php
+@@ -0,0 +1,220 @@
++<?php
++namespace TYPO3\PharStreamWrapper\Phar;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++class Reader
++{
++    /**
++     * @var string
++     */
++    private $fileName;
++
++    /**
++     * @var string
++     */
++    private $fileType;
++
++    /**
++     * @param string $fileName
++     */
++    public function __construct($fileName)
++    {
++        if (strpos($fileName, '://') !== false) {
++            throw new ReaderException(
++                'File name must not contain stream prefix',
++                1539623708
++            );
++        }
++
++        $this->fileName = $fileName;
++        $this->fileType = $this->determineFileType();
++    }
++
++    /**
++     * @return Container
++     */
++    public function resolveContainer()
++    {
++        $data = $this->extractData($this->resolveStream() . $this->fileName);
++
++        if ($data['stubContent'] === null) {
++            throw new ReaderException(
++                'Cannot resolve stub',
++                1547807881
++            );
++        }
++        if ($data['manifestContent'] === null || $data['manifestLength'] === null) {
++            throw new ReaderException(
++                'Cannot resolve manifest',
++                1547807882
++            );
++        }
++        if (strlen($data['manifestContent']) < $data['manifestLength']) {
++            throw new ReaderException(
++                sprintf(
++                    'Exected manifest length %d, got %d',
++                    strlen($data['manifestContent']),
++                    $data['manifestLength']
++                ),
++                1547807883
++            );
++        }
++
++        return new Container(
++            Stub::fromContent($data['stubContent']),
++            Manifest::fromContent($data['manifestContent'])
++        );
++    }
++
++    /**
++     * @param string $fileName e.g. '/path/file.phar' or 'compress.zlib:///path/file.phar'
++     * @return array
++     */
++    private function extractData($fileName)
++    {
++        $stubContent = null;
++        $manifestContent = null;
++        $manifestLength = null;
++
++        $resource = fopen($fileName, 'r');
++        if (!is_resource($resource)) {
++            throw new ReaderException(
++                sprintf('Resource %s could not be opened', $fileName),
++                1547902055
++            );
++        }
++
++        while (!feof($resource)) {
++            $line = fgets($resource);
++            // stop reading file when manifest can be extracted
++            if ($manifestLength !== null && $manifestContent !== null && strlen($manifestContent) >= $manifestLength) {
++                break;
++            }
++
++            $manifestPosition = strpos($line, '__HALT_COMPILER();');
++
++            // first line contains start of manifest
++            if ($stubContent === null && $manifestContent === null && $manifestPosition !== false) {
++                $stubContent = substr($line, 0, $manifestPosition - 1);
++                $manifestContent = preg_replace('#^.*__HALT_COMPILER\(\);(?>[ \n]\?>(?>\r\n|\n)?)?#', '', $line);
++                $manifestLength = $this->resolveManifestLength($manifestContent);
++            // line contains start of stub
++            } elseif ($stubContent === null) {
++                $stubContent = $line;
++            // line contains start of manifest
++            } elseif ($manifestContent === null && $manifestPosition !== false) {
++                $manifestContent = preg_replace('#^.*__HALT_COMPILER\(\);(?>[ \n]\?>(?>\r\n|\n)?)?#', '', $line);
++                $manifestLength = $this->resolveManifestLength($manifestContent);
++            // manifest has been started (thus is cannot be stub anymore), add content
++            } elseif ($manifestContent !== null) {
++                $manifestContent .= $line;
++                $manifestLength = $this->resolveManifestLength($manifestContent);
++            // stub has been started (thus cannot be manifest here, yet), add content
++            } elseif ($stubContent !== null) {
++                $stubContent .= $line;
++            }
++        }
++        fclose($resource);
++
++        return array(
++            'stubContent' => $stubContent,
++            'manifestContent' => $manifestContent,
++            'manifestLength' => $manifestLength,
++        );
++    }
++
++    /**
++     * Resolves stream in order to handle compressed Phar archives.
++     *
++     * @return string
++     */
++    private function resolveStream()
++    {
++        if ($this->fileType === 'application/x-gzip') {
++            return 'compress.zlib://';
++        } elseif ($this->fileType === 'application/x-bzip2') {
++            return 'compress.bzip2://';
++        }
++        return '';
++    }
++
++    /**
++     * @return string
++     */
++    private function determineFileType()
++    {
++        $fileInfo = new \finfo();
++        return $fileInfo->file($this->fileName, FILEINFO_MIME_TYPE);
++    }
++
++    /**
++     * @param string $content
++     * @return int|null
++     */
++    private function resolveManifestLength($content)
++    {
++        if (strlen($content) < 4) {
++            return null;
++        }
++        return static::resolveFourByteLittleEndian($content, 0);
++    }
++
++    /**
++     * @param string $content
++     * @param int $start
++     * @return int
++     */
++    public static function resolveFourByteLittleEndian($content, $start)
++    {
++        $payload = substr($content, $start, 4);
++        if (!is_string($payload)) {
++            throw new ReaderException(
++                sprintf('Cannot resolve value at offset %d', $start),
++                1539614260
++            );
++        }
++
++        $value = unpack('V', $payload);
++        if (!isset($value[1])) {
++            throw new ReaderException(
++                sprintf('Cannot resolve value at offset %d', $start),
++                1539614261
++            );
++        }
++        return $value[1];
++    }
++
++    /**
++     * @param string $content
++     * @param int $start
++     * @return int
++     */
++    public static function resolveTwoByteBigEndian($content, $start)
++    {
++        $payload = substr($content, $start, 2);
++        if (!is_string($payload)) {
++            throw new ReaderException(
++                sprintf('Cannot resolve value at offset %d', $start),
++                1539614263
++            );
++        }
++
++        $value = unpack('n', $payload);
++        if (!isset($value[1])) {
++            throw new ReaderException(
++                sprintf('Cannot resolve value at offset %d', $start),
++                1539614264
++            );
++        }
++        return $value[1];
++    }
++}
+diff --git a/misc/typo3/phar-stream-wrapper/src/Phar/ReaderException.php b/misc/typo3/phar-stream-wrapper/src/Phar/ReaderException.php
+new file mode 100644
+index 0000000..002afe1
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Phar/ReaderException.php
+@@ -0,0 +1,18 @@
++<?php
++namespace TYPO3\PharStreamWrapper\Phar;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++use TYPO3\PharStreamWrapper\Exception;
++
++class ReaderException extends Exception
++{
++}
+diff --git a/misc/typo3/phar-stream-wrapper/src/Phar/Stub.php b/misc/typo3/phar-stream-wrapper/src/Phar/Stub.php
+new file mode 100644
+index 0000000..7f72267
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Phar/Stub.php
+@@ -0,0 +1,65 @@
++<?php
++namespace TYPO3\PharStreamWrapper\Phar;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++/**
++ * @internal Experimental implementation of Phar archive internals
++ */
++class Stub
++{
++    /**
++     * @param string $content
++     * @return self
++     */
++    public static function fromContent($content)
++    {
++        $target = new static();
++        $target->content = $content;
++
++        if (
++            stripos($content, 'Phar::mapPhar(') !== false
++            && preg_match('#Phar\:\:mapPhar\(([^)]+)\)#', $content, $matches)
++        ) {
++            // remove spaces, single & double quotes
++            // @todo `'my' . 'alias' . '.phar'` is not evaluated here
++            $target->mappedAlias = trim($matches[1], ' \'"');
++        }
++
++        return $target;
++    }
++
++    /**
++     * @var string
++     */
++    private $content;
++
++    /**
++     * @var string
++     */
++    private $mappedAlias = '';
++
++    /**
++     * @return string
++     */
++    public function getContent()
++    {
++        return $this->content;
++    }
++
++    /**
++     * @return string
++     */
++    public function getMappedAlias()
++    {
++        return $this->mappedAlias;
++    }
++}
+diff --git a/misc/typo3/phar-stream-wrapper/src/PharStreamWrapper.php b/misc/typo3/phar-stream-wrapper/src/PharStreamWrapper.php
+index 5a924e4..acd5656 100644
+--- a/misc/typo3/phar-stream-wrapper/src/PharStreamWrapper.php
++++ b/misc/typo3/phar-stream-wrapper/src/PharStreamWrapper.php
+@@ -11,6 +11,8 @@ namespace TYPO3\PharStreamWrapper;
+  * The TYPO3 project - inspiring people to share!
+  */
+ 
++use TYPO3\PharStreamWrapper\Resolver\PharInvocation;
++
+ class PharStreamWrapper
+ {
+     /**
+@@ -29,6 +31,11 @@ class PharStreamWrapper
+      */
+     protected $internalResource;
+ 
++    /**
++     * @var PharInvocation
++     */
++    protected $invocation;
++
+     /**
+      * @return bool
+      */
+@@ -409,7 +416,8 @@ class PharStreamWrapper
+      */
+     protected function assert($path, $command)
+     {
+-        if ($this->resolveAssertable()->assert($path, $command) === true) {
++        if (Manager::instance()->assert($path, $command) === true) {
++            $this->collectInvocation($path);
+             return;
+         }
+ 
+@@ -424,7 +432,33 @@ class PharStreamWrapper
+     }
+ 
+     /**
+-     * @return Assertable
++     * @param string $path
++     */
++    protected function collectInvocation($path)
++    {
++        if (isset($this->invocation)) {
++            return;
++        }
++
++        $manager = Manager::instance();
++        $this->invocation = $manager->resolve($path);
++        if ($this->invocation === null) {
++            throw new Exception(
++                'Expected invocation could not be resolved',
++                1556389591
++            );
++        }
++        // confirm, previous interceptor(s) validated invocation
++        $this->invocation->confirm();
++        $collection = $manager->getCollection();
++        if (!$collection->has($this->invocation)) {
++            $collection->collect($this->invocation);
++        }
++    }
++
++    /**
++     * @return Manager|Assertable
++     * @deprecated Use Manager::instance() directly
+      */
+     protected function resolveAssertable()
+     {
+diff --git a/misc/typo3/phar-stream-wrapper/src/Resolvable.php b/misc/typo3/phar-stream-wrapper/src/Resolvable.php
+new file mode 100644
+index 0000000..5d5fdc6
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Resolvable.php
+@@ -0,0 +1,24 @@
++<?php
++namespace TYPO3\PharStreamWrapper;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++use TYPO3\PharStreamWrapper\Resolver\PharInvocation;
++
++interface Resolvable
++{
++    /**
++     * @param string $path
++     * @param null|int $flags
++     * @return null|PharInvocation
++     */
++    public function resolve($path, $flags = null);
++}
+diff --git a/misc/typo3/phar-stream-wrapper/src/Resolver/PharInvocation.php b/misc/typo3/phar-stream-wrapper/src/Resolver/PharInvocation.php
+new file mode 100644
+index 0000000..41c4b81
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Resolver/PharInvocation.php
+@@ -0,0 +1,125 @@
++<?php
++namespace TYPO3\PharStreamWrapper\Resolver;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++use TYPO3\PharStreamWrapper\Exception;
++
++class PharInvocation
++{
++    /**
++     * @var string
++     */
++    private $baseName;
++
++    /**
++     * @var string
++     */
++    private $alias;
++
++    /**
++     * @var bool
++     * @see \TYPO3\PharStreamWrapper\PharStreamWrapper::collectInvocation()
++     */
++    private $confirmed = false;
++
++    /**
++     * Arbitrary variables to be used by interceptors as registry
++     * (e.g. in order to avoid duplicate processing and assertions)
++     *
++     * @var array
++     */
++    private $variables;
++
++    /**
++     * @param string $baseName
++     * @param string $alias
++     */
++    public function __construct($baseName, $alias = '')
++    {
++        if ($baseName === '') {
++            throw new Exception(
++                'Base-name cannot be empty',
++                1551283689
++            );
++        }
++        $this->baseName = $baseName;
++        $this->alias = $alias;
++    }
++
++    /**
++     * @return string
++     */
++    public function __toString()
++    {
++        return $this->baseName;
++    }
++
++    /**
++     * @return string
++     */
++    public function getBaseName()
++    {
++        return $this->baseName;
++    }
++
++    /**
++     * @return null|string
++     */
++    public function getAlias()
++    {
++        return $this->alias;
++    }
++
++    /**
++     * @return bool
++     */
++    public function isConfirmed()
++    {
++        return $this->confirmed;
++    }
++
++    public function confirm()
++    {
++        $this->confirmed = true;
++    }
++
++    /**
++     * @param string $name
++     * @return mixed|null
++     */
++    public function getVariable($name)
++    {
++        if (!isset($this->variables[$name])) {
++            return null;
++        }
++        return $this->variables[$name];
++    }
++
++    /**
++     * @param string $name
++     * @param mixed $value
++     */
++    public function setVariable($name, $value)
++    {
++        $this->variables[$name] = $value;
++    }
++
++    /**
++     * @param PharInvocation $other
++     * @return bool
++     */
++    public function equals(PharInvocation $other)
++    {
++        return $other->baseName === $this->baseName
++            && $other->alias === $this->alias;
++    }
++}
+\ No newline at end of file
+diff --git a/misc/typo3/phar-stream-wrapper/src/Resolver/PharInvocationCollection.php b/misc/typo3/phar-stream-wrapper/src/Resolver/PharInvocationCollection.php
+new file mode 100644
+index 0000000..e445ff6
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Resolver/PharInvocationCollection.php
+@@ -0,0 +1,156 @@
++<?php
++namespace TYPO3\PharStreamWrapper\Resolver;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++use TYPO3\PharStreamWrapper\Collectable;
++
++class PharInvocationCollection implements Collectable
++{
++    const UNIQUE_INVOCATION = 1;
++    const UNIQUE_BASE_NAME = 2;
++    const DUPLICATE_ALIAS_WARNING = 32;
++
++    /**
++     * @var PharInvocation[]
++     */
++    private $invocations = array();
++
++    /**
++     * @param PharInvocation $invocation
++     * @return bool
++     */
++    public function has(PharInvocation $invocation)
++    {
++        return in_array($invocation, $this->invocations, true);
++    }
++
++    /**
++     * @param PharInvocation $invocation
++     * @param null|int $flags
++     * @return bool
++     */
++    public function collect(PharInvocation $invocation, $flags = null)
++    {
++        if ($flags === null) {
++            $flags = static::UNIQUE_INVOCATION | static::DUPLICATE_ALIAS_WARNING;
++        }
++        if ($invocation->getBaseName() === ''
++            || $invocation->getAlias() === ''
++            || !$this->assertUniqueBaseName($invocation, $flags)
++            || !$this->assertUniqueInvocation($invocation, $flags)
++        ) {
++            return false;
++        }
++        if ($flags & static::DUPLICATE_ALIAS_WARNING) {
++            $this->triggerDuplicateAliasWarning($invocation);
++        }
++
++        $this->invocations[] = $invocation;
++        return true;
++    }
++
++    /**
++     * @param callable $callback
++     * @param bool $reverse
++     * @return null|PharInvocation
++     */
++    public function findByCallback($callback, $reverse = false)
++    {
++        foreach ($this->getInvocations($reverse) as $invocation) {
++            if (call_user_func($callback, $invocation) === true) {
++                return $invocation;
++            }
++        }
++        return null;
++    }
++
++    /**
++     * Asserts that base-name is unique. This disallows having multiple invocations for
++     * same base-name but having different alias names.
++     *
++     * @param PharInvocation $invocation
++     * @param int $flags
++     * @return bool
++     */
++    private function assertUniqueBaseName(PharInvocation $invocation, $flags)
++    {
++        if (!($flags & static::UNIQUE_BASE_NAME)) {
++            return true;
++        }
++        return $this->findByCallback(
++                function (PharInvocation $candidate) use ($invocation) {
++                    return $candidate->getBaseName() === $invocation->getBaseName();
++                }
++            ) === null;
++    }
++
++    /**
++     * Asserts that combination of base-name and alias is unique. This allows having multiple
++     * invocations for same base-name but having different alias names (for whatever reason).
++     *
++     * @param PharInvocation $invocation
++     * @param int $flags
++     * @return bool
++     */
++    private function assertUniqueInvocation(PharInvocation $invocation, $flags)
++    {
++        if (!($flags & static::UNIQUE_INVOCATION)) {
++            return true;
++        }
++        return $this->findByCallback(
++                function (PharInvocation $candidate) use ($invocation) {
++                    return $candidate->equals($invocation);
++                }
++            ) === null;
++    }
++
++    /**
++     * Triggers warning for invocations with same alias and same confirmation state.
++     *
++     * @param PharInvocation $invocation
++     * @see \TYPO3\PharStreamWrapper\PharStreamWrapper::collectInvocation()
++     */
++    private function triggerDuplicateAliasWarning(PharInvocation $invocation)
++    {
++        $sameAliasInvocation = $this->findByCallback(
++            function (PharInvocation $candidate) use ($invocation) {
++                return $candidate->isConfirmed() === $invocation->isConfirmed()
++                    && $candidate->getAlias() === $invocation->getAlias();
++            },
++            true
++        );
++        if ($sameAliasInvocation === null) {
++            return;
++        }
++        trigger_error(
++            sprintf(
++                'Alias %s cannot be used by %s, already used by %s',
++                $invocation->getAlias(),
++                $invocation->getBaseName(),
++                $sameAliasInvocation->getBaseName()
++            ),
++            E_USER_WARNING
++        );
++    }
++
++    /**
++     * @param bool $reverse
++     * @return PharInvocation[]
++     */
++    private function getInvocations($reverse = false)
++    {
++        if ($reverse) {
++            return array_reverse($this->invocations);
++        }
++        return $this->invocations;
++    }
++}
+\ No newline at end of file
+diff --git a/misc/typo3/phar-stream-wrapper/src/Resolver/PharInvocationResolver.php b/misc/typo3/phar-stream-wrapper/src/Resolver/PharInvocationResolver.php
+new file mode 100644
+index 0000000..80b86d3
+--- /dev/null
++++ b/misc/typo3/phar-stream-wrapper/src/Resolver/PharInvocationResolver.php
+@@ -0,0 +1,241 @@
++<?php
++namespace TYPO3\PharStreamWrapper\Resolver;
++
++/*
++ * This file is part of the TYPO3 project.
++ *
++ * It is free software; you can redistribute it and/or modify it under the terms
++ * of the MIT License (MIT). For the full copyright and license information,
++ * please read the LICENSE file that was distributed with this source code.
++ *
++ * The TYPO3 project - inspiring people to share!
++ */
++
++use TYPO3\PharStreamWrapper\Helper;
++use TYPO3\PharStreamWrapper\Manager;
++use TYPO3\PharStreamWrapper\Phar\Reader;
++use TYPO3\PharStreamWrapper\Resolvable;
++
++class PharInvocationResolver implements Resolvable
++{
++    const RESOLVE_REALPATH = 1;
++    const RESOLVE_ALIAS = 2;
++    const ASSERT_INTERNAL_INVOCATION = 32;
++
++    /**
++     * @var string[]
++     */
++    private $invocationFunctionNames = array(
++        'include',
++        'include_once',
++        'require',
++        'require_once'
++    );
++
++    /**
++     * Contains resolved base names in order to reduce file IO.
++     *
++     * @var string[]
++     */
++    private $baseNames = array();
++
++    /**
++     * Resolves PharInvocation value object (baseName and optional alias).
++     *
++     * Phar aliases are intended to be used only inside Phar archives, however
++     * PharStreamWrapper needs this information exposed outside of Phar as well
++     * It is possible that same alias is used for different $baseName values.
++     * That's why PharInvocationCollection behaves like a stack when resolving
++     * base-name for a given alias. On the other hand it is not possible that
++     * one $baseName is referring to multiple aliases.
++     * @see https://secure.php.net/manual/en/phar.setalias.php
++     * @see https://secure.php.net/manual/en/phar.mapphar.php
++     *
++     * @param string $path
++     * @param int|null $flags
++     * @return null|PharInvocation
++     */
++    public function resolve($path, $flags = null)
++    {
++        $hasPharPrefix = Helper::hasPharPrefix($path);
++        if ($flags === null) {
++            $flags = static::RESOLVE_REALPATH | static::RESOLVE_ALIAS | static::ASSERT_INTERNAL_INVOCATION;
++        }
++
++        if ($hasPharPrefix && $flags & static::RESOLVE_ALIAS) {
++            $invocation = $this->findByAlias($path);
++            if ($invocation !== null) {
++                return $invocation;
++            }
++        }
++
++        $baseName = $this->resolveBaseName($path, $flags);
++        if ($baseName === null) {
++            return null;
++        }
++
++        if ($flags & static::RESOLVE_REALPATH) {
++            $baseName = $this->baseNames[$baseName];
++        }
++
++        return $this->retrieveInvocation($baseName, $flags);
++    }
++
++    /**
++     * Retrieves PharInvocation, either existing in collection or created on demand
++     * with resolving a potential alias name used in the according Phar archive.
++     *
++     * @param string $baseName
++     * @param int $flags
++     * @return PharInvocation
++     */
++    private function retrieveInvocation($baseName, $flags)
++    {
++        $invocation = $this->findByBaseName($baseName);
++        if ($invocation !== null) {
++            return $invocation;
++        }
++
++        if ($flags & static::RESOLVE_ALIAS) {
++            $reader = new Reader($baseName);
++            $alias = $reader->resolveContainer()->getAlias();
++        } else {
++            $alias = '';
++        }
++        // add unconfirmed(!) new invocation to collection
++        $invocation = new PharInvocation($baseName, $alias);
++        Manager::instance()->getCollection()->collect($invocation);
++        return $invocation;
++    }
++
++    /**
++     * @param string $path
++     * @param int $flags
++     * @return null|string
++     */
++    private function resolveBaseName($path, $flags)
++    {
++        $baseName = $this->findInBaseNames($path);
++        if ($baseName !== null) {
++            return $baseName;
++        }
++
++        $baseName = Helper::determineBaseFile($path);
++        if ($baseName !== null) {
++            $this->addBaseName($baseName);
++            return $baseName;
++        }
++
++        $possibleAlias = $this->resolvePossibleAlias($path);
++        if (!($flags & static::RESOLVE_ALIAS) || $possibleAlias === null) {
++            return null;
++        }
++
++        $trace = debug_backtrace();
++        foreach ($trace as $item) {
++            if (!isset($item['function']) || !isset($item['args'][0])
++                || !in_array($item['function'], $this->invocationFunctionNames, true)) {
++                continue;
++            }
++            $currentPath = $item['args'][0];
++            if (Helper::hasPharPrefix($currentPath)) {
++                continue;
++            }
++            $currentBaseName = Helper::determineBaseFile($currentPath);
++            if ($currentBaseName === null) {
++                continue;
++            }
++            // ensure the possible alias name (how we have been called initially) matches
++            // the resolved alias name that was retrieved by the current possible base name
++            $reader = new Reader($currentBaseName);
++            $currentAlias = $reader->resolveContainer()->getAlias();
++            if ($currentAlias !== $possibleAlias) {
++                continue;
++            }
++            $this->addBaseName($currentBaseName);
++            return $currentBaseName;
++        }
++
++        return null;
++    }
++
++    /**
++     * @param string $path
++     * @return null|string
++     */
++    private function resolvePossibleAlias($path)
++    {
++        $normalizedPath = Helper::normalizePath($path);
++        return strstr($normalizedPath, '/', true) ?: null;
++    }
++
++    /**
++     * @param string $baseName
++     * @return null|PharInvocation
++     */
++    private function findByBaseName($baseName)
++    {
++        return Manager::instance()->getCollection()->findByCallback(
++            function (PharInvocation $candidate) use ($baseName) {
++                return $candidate->getBaseName() === $baseName;
++            },
++            true
++        );
++    }
++
++    /**
++     * @param string $path
++     * @return null|string
++     */
++    private function findInBaseNames($path)
++    {
++        // return directly if the resolved base name was submitted
++        if (in_array($path, $this->baseNames, true)) {
++            return $path;
++        }
++
++        $parts = explode('/', Helper::normalizePath($path));
++
++        while (count($parts)) {
++            $currentPath = implode('/', $parts);
++            if (isset($this->baseNames[$currentPath])) {
++                return $currentPath;
++            }
++            array_pop($parts);
++        }
++
++        return null;
++    }
++
++    /**
++     * @param string $baseName
++     */
++    private function addBaseName($baseName)
++    {
++        if (isset($this->baseNames[$baseName])) {
++            return;
++        }
++        $this->baseNames[$baseName] = realpath($baseName);
++    }
++
++    /**
++     * Finds confirmed(!) invocations by alias.
++     *
++     * @param string $path
++     * @return null|PharInvocation
++     * @see \TYPO3\PharStreamWrapper\PharStreamWrapper::collectInvocation()
++     */
++    private function findByAlias($path)
++    {
++        $possibleAlias = $this->resolvePossibleAlias($path);
++        if ($possibleAlias === null) {
++            return null;
++        }
++        return Manager::instance()->getCollection()->findByCallback(
++            function (PharInvocation $candidate) use ($possibleAlias) {
++                return $candidate->isConfirmed() && $candidate->getAlias() === $possibleAlias;
++            },
++            true
++        );
++    }
++}
+diff --git a/modules/aggregator/aggregator.info b/modules/aggregator/aggregator.info
+index 48f6581..621bf16 100644
+--- a/modules/aggregator/aggregator.info
++++ b/modules/aggregator/aggregator.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/block/block.info b/modules/block/block.info
+index 79020b5..ad59a2c 100644
+--- a/modules/block/block.info
++++ b/modules/block/block.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/blog/blog.info b/modules/blog/blog.info
+index 45d2088..bed05d5 100644
+--- a/modules/blog/blog.info
++++ b/modules/blog/blog.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/blogapi/blogapi.info b/modules/blogapi/blogapi.info
+index 932e210..39743ee 100644
+--- a/modules/blogapi/blogapi.info
++++ b/modules/blogapi/blogapi.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/book/book.info b/modules/book/book.info
+index cc58d99..95be01e 100644
+--- a/modules/book/book.info
++++ b/modules/book/book.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/color/color.info b/modules/color/color.info
+index b0c7624..40c60f8 100644
+--- a/modules/color/color.info
++++ b/modules/color/color.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/comment/comment.info b/modules/comment/comment.info
+index d766402..c2d9899 100644
+--- a/modules/comment/comment.info
++++ b/modules/comment/comment.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/contact/contact.info b/modules/contact/contact.info
+index d2c7940..690bcd2 100644
+--- a/modules/contact/contact.info
++++ b/modules/contact/contact.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/dblog/dblog.info b/modules/dblog/dblog.info
+index 1a2d2c7..ec23bfd 100644
+--- a/modules/dblog/dblog.info
++++ b/modules/dblog/dblog.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/filter/filter.info b/modules/filter/filter.info
+index 467a1dd..a0a7593 100644
+--- a/modules/filter/filter.info
++++ b/modules/filter/filter.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/forum/forum.info b/modules/forum/forum.info
+index 613fa1c..8f69f47 100644
+--- a/modules/forum/forum.info
++++ b/modules/forum/forum.info
+@@ -7,7 +7,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/help/help.info b/modules/help/help.info
+index 349fc6b..5e56ec2 100644
+--- a/modules/help/help.info
++++ b/modules/help/help.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/locale/locale.info b/modules/locale/locale.info
+index 5bc6f75..2c28bc2 100644
+--- a/modules/locale/locale.info
++++ b/modules/locale/locale.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/menu/menu.info b/modules/menu/menu.info
+index 2044f3d..a7f2eeb 100644
+--- a/modules/menu/menu.info
++++ b/modules/menu/menu.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/node/node.info b/modules/node/node.info
+index 5996c94..7cb1406 100644
+--- a/modules/node/node.info
++++ b/modules/node/node.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/openid/openid.info b/modules/openid/openid.info
+index 47b1957..a38da04 100644
+--- a/modules/openid/openid.info
++++ b/modules/openid/openid.info
+@@ -5,7 +5,7 @@ package = Core - optional
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/path/path.info b/modules/path/path.info
+index 3c56619..e7bc66b 100644
+--- a/modules/path/path.info
++++ b/modules/path/path.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/php/php.info b/modules/php/php.info
+index d85fea1..a91527f 100644
+--- a/modules/php/php.info
++++ b/modules/php/php.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/ping/ping.info b/modules/ping/ping.info
+index 2bc4a62..4019ac3 100644
+--- a/modules/ping/ping.info
++++ b/modules/ping/ping.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/poll/poll.info b/modules/poll/poll.info
+index e79a371..b8ceb39 100644
+--- a/modules/poll/poll.info
++++ b/modules/poll/poll.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/profile/profile.info b/modules/profile/profile.info
+index 117ecd6..508fa55 100644
+--- a/modules/profile/profile.info
++++ b/modules/profile/profile.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/search/search.info b/modules/search/search.info
+index cdcd173..160416a 100644
+--- a/modules/search/search.info
++++ b/modules/search/search.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/statistics/statistics.info b/modules/statistics/statistics.info
+index 29091a3..cdba5ad 100644
+--- a/modules/statistics/statistics.info
++++ b/modules/statistics/statistics.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/syslog/syslog.info b/modules/syslog/syslog.info
+index 7bf6373..edf8484 100644
+--- a/modules/syslog/syslog.info
++++ b/modules/syslog/syslog.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/system/system.info b/modules/system/system.info
+index a56d25a..b1b2f82 100644
+--- a/modules/system/system.info
++++ b/modules/system/system.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/system/system.module b/modules/system/system.module
+index 5182236..55502f1 100644
+--- a/modules/system/system.module
++++ b/modules/system/system.module
+@@ -8,7 +8,7 @@
+ /**
+  * The current system version.
+  */
+-define('VERSION', '6.38-p8');
++define('VERSION', '6.38-p9');
+ 
+ /**
+  * Core API compatibility.
+diff --git a/modules/taxonomy/taxonomy.info b/modules/taxonomy/taxonomy.info
+index 1857243..0113327 100644
+--- a/modules/taxonomy/taxonomy.info
++++ b/modules/taxonomy/taxonomy.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/throttle/throttle.info b/modules/throttle/throttle.info
+index f48d8ea..bea88ed 100644
+--- a/modules/throttle/throttle.info
++++ b/modules/throttle/throttle.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/tracker/tracker.info b/modules/tracker/tracker.info
+index 504ab0f..09b8e3f 100644
+--- a/modules/tracker/tracker.info
++++ b/modules/tracker/tracker.info
+@@ -6,7 +6,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/translation/translation.info b/modules/translation/translation.info
+index 6fca1a5..03faa34 100644
+--- a/modules/translation/translation.info
++++ b/modules/translation/translation.info
+@@ -6,7 +6,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/trigger/trigger.info b/modules/trigger/trigger.info
+index 5fd140d..550e319 100644
+--- a/modules/trigger/trigger.info
++++ b/modules/trigger/trigger.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/update/update.info b/modules/update/update.info
+index ad996c9..5c60cd2 100644
+--- a/modules/update/update.info
++++ b/modules/update/update.info
+@@ -5,7 +5,7 @@ package = Core - optional
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/upload/upload.info b/modules/upload/upload.info
+index f4abf62..e698cf2 100644
+--- a/modules/upload/upload.info
++++ b/modules/upload/upload.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/user/user.info b/modules/user/user.info
+index 1612b60..d0d1846 100644
+--- a/modules/user/user.info
++++ b/modules/user/user.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/bluemarine/bluemarine.info b/themes/bluemarine/bluemarine.info
+index 2577ee5..3a2411d 100644
+--- a/themes/bluemarine/bluemarine.info
++++ b/themes/bluemarine/bluemarine.info
+@@ -5,7 +5,7 @@ core = 6.x
+ engine = phptemplate
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/chameleon/chameleon.info b/themes/chameleon/chameleon.info
+index d8899eb..f707e88 100644
+--- a/themes/chameleon/chameleon.info
++++ b/themes/chameleon/chameleon.info
+@@ -12,7 +12,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/chameleon/marvin/marvin.info b/themes/chameleon/marvin/marvin.info
+index 48df35c..dd86ace 100644
+--- a/themes/chameleon/marvin/marvin.info
++++ b/themes/chameleon/marvin/marvin.info
+@@ -7,7 +7,7 @@ core = 6.x
+ base theme = chameleon
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/garland/garland.info b/themes/garland/garland.info
+index f593a76..0b7809b 100644
+--- a/themes/garland/garland.info
++++ b/themes/garland/garland.info
+@@ -7,7 +7,7 @@ stylesheets[all][] = style.css
+ stylesheets[print][] = print.css
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/garland/minnelli/minnelli.info b/themes/garland/minnelli/minnelli.info
+index 0f477a2..63f70bf 100644
+--- a/themes/garland/minnelli/minnelli.info
++++ b/themes/garland/minnelli/minnelli.info
+@@ -6,7 +6,7 @@ base theme = garland
+ stylesheets[all][] = minnelli.css
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/pushbutton/pushbutton.info b/themes/pushbutton/pushbutton.info
+index cf94e9f..d9f9206 100644
+--- a/themes/pushbutton/pushbutton.info
++++ b/themes/pushbutton/pushbutton.info
+@@ -5,7 +5,7 @@ core = 6.x
+ engine = phptemplate
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p8"
++version = "6.38-p9"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
