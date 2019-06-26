@@ -1,0 +1,148 @@
+diff --git a/advanced_forum.info b/advanced_forum.info
+index ebb7dae..d841338 100644
+--- a/advanced_forum.info
++++ b/advanced_forum.info
+@@ -7,7 +7,7 @@ dependencies[] = views
+ core = 6.x
+ 
+ ; Information added by drupal.org packaging script on 2012-05-10
+-version = "6.x-2.0-beta1"
++version = "6.x-2.0-beta1-p1"
+ core = "6.x"
+ project = "advanced_forum"
+ datestamp = "1336694149"
+diff --git a/includes/advanced_forum_preprocess_forum_list.inc b/includes/advanced_forum_preprocess_forum_list.inc
+index 38bf9e7..118b9a6 100644
+--- a/includes/advanced_forum_preprocess_forum_list.inc
++++ b/includes/advanced_forum_preprocess_forum_list.inc
+@@ -260,9 +260,10 @@ function advanced_forum_process_forum($forum) {
+   $forum->link = url("forum/$forum->tid");
+ 
+   // Sanitise the name and description so they can be safely printed.
+-  // We don't do this for subforum names because that is sent through l()
+-  // in the theme function which runs it through check_plain().
+-  $forum->name = empty($forum->parents[0]) ? check_plain($forum->name) : $forum->name;
++  // We don't do check_plain() for subforum names because those should go
++  // through l() in the advanced_forum_subforum_list theme function and l()
++  // includes check_plain().
++  $forum->name = empty($forum->parents[0]) ? check_plain($forum->name) : filter_xss_admin($forum->name);
+   $forum->description = !empty($forum->description) ? filter_xss_admin($forum->description) : '';
+ 
+   // Initialize these variables to avoid notices later since not all forums
+diff --git a/includes/template_preprocess_advanced_forum_topic_list_view.inc b/includes/template_preprocess_advanced_forum_topic_list_view.inc
+index 6bccba5..12d4452 100644
+--- a/includes/template_preprocess_advanced_forum_topic_list_view.inc
++++ b/includes/template_preprocess_advanced_forum_topic_list_view.inc
+@@ -75,7 +75,7 @@ function _template_preprocess_advanced_forum_topic_list_view(&$variables) {
+     // Shadow (moved) topics.
+     if ($forum && !in_array($row->topic_actual_forum, $forum)) {
+       $term = taxonomy_get_term($row->topic_actual_forum);
+-      $variables['shadow'][$count] = theme('advanced_forum_shadow_topic', $row->node_title, $row->nid, $term->name);
++      $variables['shadow'][$count] = theme('advanced_forum_shadow_topic', check_plain($row->node_title), $row->nid, empty($term->name) ? "" : check_plain($term->name));
+     }
+     else {
+       $variables['shadow'][$count] = FALSE;
+diff --git a/styles/blue_lagoon/blue_lagoon.info b/styles/blue_lagoon/blue_lagoon.info
+index b728ed1..06fbed8 100644
+--- a/styles/blue_lagoon/blue_lagoon.info
++++ b/styles/blue_lagoon/blue_lagoon.info
+@@ -5,7 +5,7 @@ version = 2.x
+ base style = naked
+ 
+ ; Information added by drupal.org packaging script on 2012-05-10
+-version = "6.x-2.0-beta1"
++version = "6.x-2.0-beta1-p1"
+ core = "6.x"
+ project = "advanced_forum"
+ datestamp = "1336694149"
+diff --git a/styles/blue_lagoon_stacked/blue_lagoon_stacked.info b/styles/blue_lagoon_stacked/blue_lagoon_stacked.info
+index f8527b8..7425030 100644
+--- a/styles/blue_lagoon_stacked/blue_lagoon_stacked.info
++++ b/styles/blue_lagoon_stacked/blue_lagoon_stacked.info
+@@ -6,7 +6,7 @@ base style = blue_lagoon
+ extra style = naked_stacked
+ 
+ ; Information added by drupal.org packaging script on 2012-05-10
+-version = "6.x-2.0-beta1"
++version = "6.x-2.0-beta1-p1"
+ core = "6.x"
+ project = "advanced_forum"
+ datestamp = "1336694149"
+diff --git a/styles/cloudless_day/cloudless_day.info b/styles/cloudless_day/cloudless_day.info
+index 46ce9bd..fb6530b 100644
+--- a/styles/cloudless_day/cloudless_day.info
++++ b/styles/cloudless_day/cloudless_day.info
+@@ -5,7 +5,7 @@ version = 2.x
+ base style = silver_bells
+ 
+ ; Information added by drupal.org packaging script on 2012-05-10
+-version = "6.x-2.0-beta1"
++version = "6.x-2.0-beta1-p1"
+ core = "6.x"
+ project = "advanced_forum"
+ datestamp = "1336694149"
+diff --git a/styles/cloudless_day_stacked/cloudless_day_stacked.info b/styles/cloudless_day_stacked/cloudless_day_stacked.info
+index d1edda5..966e73f 100644
+--- a/styles/cloudless_day_stacked/cloudless_day_stacked.info
++++ b/styles/cloudless_day_stacked/cloudless_day_stacked.info
+@@ -6,7 +6,7 @@ base style = cloudless_day
+ extra style = naked_stacked
+ 
+ ; Information added by drupal.org packaging script on 2012-05-10
+-version = "6.x-2.0-beta1"
++version = "6.x-2.0-beta1-p1"
+ core = "6.x"
+ project = "advanced_forum"
+ datestamp = "1336694149"
+diff --git a/styles/naked/naked.info b/styles/naked/naked.info
+index 0addb5e..6432ffb 100644
+--- a/styles/naked/naked.info
++++ b/styles/naked/naked.info
+@@ -4,7 +4,7 @@ description = Base style with no CSS except positioning. Meant as a starter styl
+ version = 2.x
+ 
+ ; Information added by drupal.org packaging script on 2012-05-10
+-version = "6.x-2.0-beta1"
++version = "6.x-2.0-beta1-p1"
+ core = "6.x"
+ project = "advanced_forum"
+ datestamp = "1336694149"
+diff --git a/styles/naked_stacked/naked_stacked.info b/styles/naked_stacked/naked_stacked.info
+index d135451..3ae8362 100644
+--- a/styles/naked_stacked/naked_stacked.info
++++ b/styles/naked_stacked/naked_stacked.info
+@@ -4,7 +4,7 @@ description = Same as Naked except the Author Pane is on top.
+ version = 2.x
+ base style = naked
+ ; Information added by drupal.org packaging script on 2012-05-10
+-version = "6.x-2.0-beta1"
++version = "6.x-2.0-beta1-p1"
+ core = "6.x"
+ project = "advanced_forum"
+ datestamp = "1336694149"
+diff --git a/styles/silver_bells/silver_bells.info b/styles/silver_bells/silver_bells.info
+index cdfe0c0..a87028d 100644
+--- a/styles/silver_bells/silver_bells.info
++++ b/styles/silver_bells/silver_bells.info
+@@ -5,7 +5,7 @@ version = 2.x
+ base style = naked
+ 
+ ; Information added by drupal.org packaging script on 2012-05-10
+-version = "6.x-2.0-beta1"
++version = "6.x-2.0-beta1-p1"
+ core = "6.x"
+ project = "advanced_forum"
+ datestamp = "1336694149"
+diff --git a/styles/silver_bells_stacked/silver_bells_stacked.info b/styles/silver_bells_stacked/silver_bells_stacked.info
+index 6bec370..b790d15 100644
+--- a/styles/silver_bells_stacked/silver_bells_stacked.info
++++ b/styles/silver_bells_stacked/silver_bells_stacked.info
+@@ -7,7 +7,7 @@ extra style = naked_stacked
+ 
+ 
+ ; Information added by drupal.org packaging script on 2012-05-10
+-version = "6.x-2.0-beta1"
++version = "6.x-2.0-beta1-p1"
+ core = "6.x"
+ project = "advanced_forum"
+ datestamp = "1336694149"
