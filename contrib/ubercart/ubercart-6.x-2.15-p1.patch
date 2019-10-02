@@ -1,0 +1,428 @@
+diff --git a/ca/ca.info b/ca/ca.info
+index b4416c6..b4138f8 100644
+--- a/ca/ca.info
++++ b/ca/ca.info
+@@ -5,7 +5,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/payment/uc_2checkout/uc_2checkout.info b/payment/uc_2checkout/uc_2checkout.info
+index f82396a..6e093f7 100644
+--- a/payment/uc_2checkout/uc_2checkout.info
++++ b/payment/uc_2checkout/uc_2checkout.info
+@@ -6,7 +6,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/payment/uc_authorizenet/uc_authorizenet.info b/payment/uc_authorizenet/uc_authorizenet.info
+index 4ea8765..08e0913 100644
+--- a/payment/uc_authorizenet/uc_authorizenet.info
++++ b/payment/uc_authorizenet/uc_authorizenet.info
+@@ -7,7 +7,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/payment/uc_credit/test_gateway.info b/payment/uc_credit/test_gateway.info
+index 5e907a1..d251f3f 100644
+--- a/payment/uc_credit/test_gateway.info
++++ b/payment/uc_credit/test_gateway.info
+@@ -7,7 +7,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/payment/uc_credit/uc_credit.info b/payment/uc_credit/uc_credit.info
+index c5164b5..a1ba1fa 100644
+--- a/payment/uc_credit/uc_credit.info
++++ b/payment/uc_credit/uc_credit.info
+@@ -6,7 +6,7 @@ package = Ubercart - payment
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/payment/uc_cybersource/uc_cybersource.info b/payment/uc_cybersource/uc_cybersource.info
+index 401a76e..e001b7e 100644
+--- a/payment/uc_cybersource/uc_cybersource.info
++++ b/payment/uc_cybersource/uc_cybersource.info
+@@ -6,7 +6,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/payment/uc_google_checkout/uc_google_checkout.info b/payment/uc_google_checkout/uc_google_checkout.info
+index 40e21d6..3fdbed3 100644
+--- a/payment/uc_google_checkout/uc_google_checkout.info
++++ b/payment/uc_google_checkout/uc_google_checkout.info
+@@ -8,7 +8,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/payment/uc_payment/uc_payment.info b/payment/uc_payment/uc_payment.info
+index cde3920..34d894a 100644
+--- a/payment/uc_payment/uc_payment.info
++++ b/payment/uc_payment/uc_payment.info
+@@ -8,7 +8,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/payment/uc_payment_pack/uc_payment_pack.info b/payment/uc_payment_pack/uc_payment_pack.info
+index 94aedb1..baa480a 100644
+--- a/payment/uc_payment_pack/uc_payment_pack.info
++++ b/payment/uc_payment_pack/uc_payment_pack.info
+@@ -7,7 +7,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/payment/uc_paypal/uc_paypal.info b/payment/uc_paypal/uc_paypal.info
+index d28bd5b..45fad80 100644
+--- a/payment/uc_paypal/uc_paypal.info
++++ b/payment/uc_paypal/uc_paypal.info
+@@ -6,7 +6,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/shipping/uc_flatrate/uc_flatrate.info b/shipping/uc_flatrate/uc_flatrate.info
+index e4c25cc..3469a5f 100644
+--- a/shipping/uc_flatrate/uc_flatrate.info
++++ b/shipping/uc_flatrate/uc_flatrate.info
+@@ -6,7 +6,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/shipping/uc_quote/uc_quote.info b/shipping/uc_quote/uc_quote.info
+index 551f924..7c4b28b 100644
+--- a/shipping/uc_quote/uc_quote.info
++++ b/shipping/uc_quote/uc_quote.info
+@@ -7,7 +7,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/shipping/uc_shipping/uc_shipping.info b/shipping/uc_shipping/uc_shipping.info
+index ec3ceaf..0981855 100644
+--- a/shipping/uc_shipping/uc_shipping.info
++++ b/shipping/uc_shipping/uc_shipping.info
+@@ -6,7 +6,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/shipping/uc_ups/uc_ups.info b/shipping/uc_ups/uc_ups.info
+index 37686de..c9049fc 100644
+--- a/shipping/uc_ups/uc_ups.info
++++ b/shipping/uc_ups/uc_ups.info
+@@ -6,7 +6,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/shipping/uc_usps/uc_usps.info b/shipping/uc_usps/uc_usps.info
+index f86212c..a9917a3 100644
+--- a/shipping/uc_usps/uc_usps.info
++++ b/shipping/uc_usps/uc_usps.info
+@@ -6,7 +6,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/shipping/uc_weightquote/uc_weightquote.info b/shipping/uc_weightquote/uc_weightquote.info
+index 4ed99cc..3069662 100644
+--- a/shipping/uc_weightquote/uc_weightquote.info
++++ b/shipping/uc_weightquote/uc_weightquote.info
+@@ -6,7 +6,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/uc_attribute/uc_attribute.info b/uc_attribute/uc_attribute.info
+index c5ca798..a035970 100644
+--- a/uc_attribute/uc_attribute.info
++++ b/uc_attribute/uc_attribute.info
+@@ -6,7 +6,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/uc_cart/uc_cart.info b/uc_cart/uc_cart.info
+index 5f82abb..e671cb8 100644
+--- a/uc_cart/uc_cart.info
++++ b/uc_cart/uc_cart.info
+@@ -8,7 +8,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/uc_cart_links/uc_cart_links.info b/uc_cart_links/uc_cart_links.info
+index 5c5317b..9c137cf 100644
+--- a/uc_cart_links/uc_cart_links.info
++++ b/uc_cart_links/uc_cart_links.info
+@@ -6,7 +6,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/uc_catalog/uc_catalog.info b/uc_catalog/uc_catalog.info
+index d7ed1ca..e9e74aa 100644
+--- a/uc_catalog/uc_catalog.info
++++ b/uc_catalog/uc_catalog.info
+@@ -8,7 +8,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/uc_file/uc_file.info b/uc_file/uc_file.info
+index 4088e27..be82c67 100644
+--- a/uc_file/uc_file.info
++++ b/uc_file/uc_file.info
+@@ -7,7 +7,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/uc_googleanalytics/uc_googleanalytics.info b/uc_googleanalytics/uc_googleanalytics.info
+index 8bfbcd5..d37fc50 100644
+--- a/uc_googleanalytics/uc_googleanalytics.info
++++ b/uc_googleanalytics/uc_googleanalytics.info
+@@ -9,7 +9,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/uc_order/uc_order.info b/uc_order/uc_order.info
+index 2e7c277..b332956 100644
+--- a/uc_order/uc_order.info
++++ b/uc_order/uc_order.info
+@@ -8,7 +8,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/uc_order/uc_order.module b/uc_order/uc_order.module
+index 9fcf32a..84c1947 100644
+--- a/uc_order/uc_order.module
++++ b/uc_order/uc_order.module
+@@ -1638,6 +1638,10 @@ function template_preprocess_uc_order(&$variables) {
+       break;
+   }
+ 
++  foreach ($variables['order']->products as $product) {
++    $product->title = check_plain($product->title);
++    $product->model = check_plain($product->model);
++  }
+   $variables['products'] = $variables['order']->products;
+   if (!is_array($variables['products'])) {
+     $variables['products'] = array();
+@@ -1664,6 +1668,9 @@ function template_preprocess_uc_order(&$variables) {
+   if (!is_array($variables['line_items'])) {
+     $variables['line_items'] = array();
+   }
++  foreach ($variables['line_items'] as &$line_item) {
++    $line_item['title'] = check_plain($line_item['title']);
++  }
+   usort($variables['line_items'], 'uc_weight_sort');
+ 
+   // Generate tokens to use as template variables.
+diff --git a/uc_product/uc_product.info b/uc_product/uc_product.info
+index 77cf9f0..e67a061 100644
+--- a/uc_product/uc_product.info
++++ b/uc_product/uc_product.info
+@@ -6,7 +6,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/uc_product_kit/uc_product_kit.info b/uc_product_kit/uc_product_kit.info
+index d817b87..8db4cfb 100644
+--- a/uc_product_kit/uc_product_kit.info
++++ b/uc_product_kit/uc_product_kit.info
+@@ -6,7 +6,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/uc_reports/uc_reports.info b/uc_reports/uc_reports.info
+index 20b6da5..124d982 100644
+--- a/uc_reports/uc_reports.info
++++ b/uc_reports/uc_reports.info
+@@ -7,7 +7,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/uc_roles/uc_roles.info b/uc_roles/uc_roles.info
+index a35d09a..0e055a0 100644
+--- a/uc_roles/uc_roles.info
++++ b/uc_roles/uc_roles.info
+@@ -7,7 +7,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/uc_stock/uc_stock.info b/uc_stock/uc_stock.info
+index b695e5a..0ccc5e2 100644
+--- a/uc_stock/uc_stock.info
++++ b/uc_stock/uc_stock.info
+@@ -7,7 +7,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/uc_store/uc_store.info b/uc_store/uc_store.info
+index 1cf54f3..f99f1d3 100644
+--- a/uc_store/uc_store.info
++++ b/uc_store/uc_store.info
+@@ -5,7 +5,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/uc_tax_report/uc_tax_report.info b/uc_tax_report/uc_tax_report.info
+index b2e2f2a..fa38e3c 100644
+--- a/uc_tax_report/uc_tax_report.info
++++ b/uc_tax_report/uc_tax_report.info
+@@ -7,7 +7,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
+diff --git a/uc_taxes/uc_taxes.info b/uc_taxes/uc_taxes.info
+index 5630752..264c8a1 100644
+--- a/uc_taxes/uc_taxes.info
++++ b/uc_taxes/uc_taxes.info
+@@ -9,7 +9,7 @@ core = 6.x
+ php = 5.0
+ 
+ ; Information added by Drupal.org packaging script on 2015-12-04
+-version = "6.x-2.15"
++version = "6.x-2.15-p1"
+ core = "6.x"
+ project = "ubercart"
+ datestamp = "1449241750"
