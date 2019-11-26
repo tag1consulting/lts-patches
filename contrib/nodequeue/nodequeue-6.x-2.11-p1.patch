@@ -1,0 +1,68 @@
+diff --git a/addons/nodequeue_service/nodequeue_service.info b/addons/nodequeue_service/nodequeue_service.info
+index 96b7d08..bbccd32 100644
+--- a/addons/nodequeue_service/nodequeue_service.info
++++ b/addons/nodequeue_service/nodequeue_service.info
+@@ -8,7 +8,7 @@ package         = "Nodequeue"
+ 
+ 
+ ; Information added by drupal.org packaging script on 2011-09-20
+-version = "6.x-2.11"
++version = "6.x-2.11-p1"
+ core = "6.x"
+ project = "nodequeue"
+ datestamp = "1316558105"
+diff --git a/nodequeue.info b/nodequeue.info
+index abefd87..43d6218 100644
+--- a/nodequeue.info
++++ b/nodequeue.info
+@@ -4,7 +4,7 @@ package = Nodequeue
+ core = 6.x
+ 
+ ; Information added by drupal.org packaging script on 2011-09-20
+-version = "6.x-2.11"
++version = "6.x-2.11-p1"
+ core = "6.x"
+ project = "nodequeue"
+ datestamp = "1316558105"
+diff --git a/nodequeue.js b/nodequeue.js
+index 6d66196..fc78524 100644
+--- a/nodequeue.js
++++ b/nodequeue.js
+@@ -393,9 +393,9 @@ Drupal.nodequeue.autoAttach = function() {
+         if (data.status) {
+           // Change label back
+           $(a).attr('href', data.href);
+-          $(a).html(data.label);
++          $(a).html(data.label.replace(/<[^>]*>?/gm, ''));
+           if (data.sqid) {
+-            $('#nodequeue-count-' + data.sqid).html(data.count);
++            $('#nodequeue-count-' + data.sqid).html(data.count.replace(/<[^>]*>?/gm, ''));
+           }
+           if (data.href.search('remove-node') > -1) {
+             $(a).removeClass('toggle-add');
+diff --git a/nodequeue_generate.info b/nodequeue_generate.info
+index 271adb7..a5ac7d7 100644
+--- a/nodequeue_generate.info
++++ b/nodequeue_generate.info
+@@ -5,7 +5,7 @@ dependencies[] = nodequeue
+ core = 6.x
+ 
+ ; Information added by drupal.org packaging script on 2011-09-20
+-version = "6.x-2.11"
++version = "6.x-2.11-p1"
+ core = "6.x"
+ project = "nodequeue"
+ datestamp = "1316558105"
+diff --git a/smartqueue.info b/smartqueue.info
+index 27e1061..548a5fd 100644
+--- a/smartqueue.info
++++ b/smartqueue.info
+@@ -6,7 +6,7 @@ dependencies[] = nodequeue
+ dependencies[] = taxonomy
+ 
+ ; Information added by drupal.org packaging script on 2011-09-20
+-version = "6.x-2.11"
++version = "6.x-2.11-p1"
+ core = "6.x"
+ project = "nodequeue"
+ datestamp = "1316558105"
