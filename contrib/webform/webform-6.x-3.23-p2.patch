@@ -1,0 +1,28 @@
+diff --git a/webform.info b/webform.info
+index f777c35..11cb6cb 100644
+--- a/webform.info
++++ b/webform.info
+@@ -6,7 +6,7 @@ package = Webform
+ php = 5.1
+ 
+ ; Information added by Drupal.org packaging script on 2015-03-17
+-version = "6.x-3.23-p1"
++version = "6.x-3.23-p2"
+ core = "6.x"
+ project = "webform"
+ datestamp = "1426611474"
+diff --git a/webform.module b/webform.module
+index 93e649e..6a258a9 100644
+--- a/webform.module
++++ b/webform.module
+@@ -2890,6 +2890,10 @@ function _webform_filter_values($string, $node = NULL, $submission = NULL, $emai
+             $replacement = webform_strtodate(webform_date_format(), $value['month'] . '/' . $value['day'] . '/' . $value['year'], 'UTC');
+           }
+           else {
++            // Apply XSS filtering, but only when the value is a string;
++            // since filter_xss() expects a string as parameter.
++            $value = is_string($value) ? filter_xss($value) : $value;
++
+             // Checking for complex types (arrays and objects) fails here with
+             // incomplete objects (see http://php.net/is_object), so we check
+             // for simple types instead.
