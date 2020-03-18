@@ -1,0 +1,201 @@
+diff --git a/ckeditor.info b/ckeditor.info
+index 2b00aa3..2027de3 100644
+--- a/ckeditor.info
++++ b/ckeditor.info
+@@ -3,7 +3,7 @@ description = "Enables CKEditor (WYSIWYG HTML editor) for use instead of plain t
+ core = 6.x
+ package = User interface
+ ; Information added by Drupal.org packaging script on 2014-10-14
+-version = "6.x-1.15"
++version = "6.x-1.15-p1"
+ core = "6.x"
+ project = "ckeditor"
+ datestamp = "1413311937"
+diff --git a/includes/ckeditor.admin.js b/includes/ckeditor.admin.js
+index 583a773..6bab6e5 100644
+--- a/includes/ckeditor.admin.js
++++ b/includes/ckeditor.admin.js
+@@ -42,8 +42,12 @@ $(document).ready(function() {
+     Drupal.editSkinEditorInit();
+   });
+ 
+-  $(".cke_load_toolbar").click(function() {
+-    var buttons = eval('Drupal.settings.'+$(this).attr("id"));
++  $(".cke_load_toolbar", "#ckeditor-admin-profile-form").click(function() {
++    var id = $(this).attr("id").replace(/[^\w]/g, '');
++    if (typeof(Drupal.settings[id]) == 'undefined') {
++      return false;
++    }
++    var buttons = Drupal.settings[id];
+     var text = "[\n";
+     for(i in buttons) {
+       if (typeof buttons[i] == 'string'){
+diff --git a/includes/ckeditor.popup.html b/includes/ckeditor.popup.html
+index 285ebc2..0a86f83 100644
+--- a/includes/ckeditor.popup.html
++++ b/includes/ckeditor.popup.html
+@@ -67,6 +67,16 @@ function get_element_id(){
+ <body>
+   <script type="text/javascript">
+     $(document).ready(function () {
++      if (typeof(Drupal.ckeditorToolbarToArray) == 'undefined') {
++        Drupal.ckeditorToolbarToArray = function (toolbar) {
++          toolbar = toolbar.replace(/\r?\n|\r/gmi, '')
++              .replace(/\s/gmi, '')
++              .replace(/([a-zA-Z0-9]+?):/g, '"$1":')
++              .replace(/'/g, '"');
++
++          return JSON.parse(toolbar);
++        };
++      }
+       var textarea_id=get_element_id();
+       $(".content_editor").attr("id", textarea_id);
+       if (teaser=Drupal.ckeditorTeaserInfo(textarea_id)) {
+@@ -87,7 +97,9 @@ function get_element_id(){
+       else {
+         Drupal.settings.ckeditor.settings[textarea_id].toolbar = Drupal.settings.ckeditor.settings[textarea_id].toolbar_orig;
+       }
+-      Drupal.settings.ckeditor.settings[textarea_id].toolbar = eval(Drupal.settings.ckeditor.settings[textarea_id].toolbar);
++      if (typeof(Drupal.settings.ckeditor.settings[textarea_id].toolbar) != 'object') {
++        Drupal.settings.ckeditor.settings[textarea_id].toolbar = Drupal.ckeditorToolbarToArray(Drupal.settings.ckeditor.settings[textarea_id].toolbar);
++      }
+ 
+       if (($("#" + textarea_id).val().length > 0) && (window.opener.$("#" + textarea_id).attr('class').indexOf("filterxss1") != -1 || window.opener.$("#" + textarea_id).attr('class').indexOf("filterxss2") != -1)) {
+         if (typeof Drupal.settings.ckeditor.settings[textarea_id].input_format == 'undefined') {
+diff --git a/includes/ckeditor.utils.js b/includes/ckeditor.utils.js
+index ad2d318..efd73b0 100644
+--- a/includes/ckeditor.utils.js
++++ b/includes/ckeditor.utils.js
+@@ -36,7 +36,9 @@ Drupal.ckeditorInit = function(textarea_id) {
+   $("#" + textarea_id).addClass("ckeditor-processed");
+ 
+   var textarea_settings = false;
+-  Drupal.settings.ckeditor.settings[textarea_id].toolbar = eval(Drupal.settings.ckeditor.settings[textarea_id].toolbar);
++  if (typeof(Drupal.settings.ckeditor.settings[textarea_id].toolbar) != 'object') {
++    Drupal.settings.ckeditor.settings[textarea_id].toolbar = Drupal.ckeditorToolbarToArray(Drupal.settings.ckeditor.settings[textarea_id].toolbar);
++  }
+   textarea_settings = Drupal.settings.ckeditor.settings[textarea_id];
+   textarea_settings['on'] =
+   {
+@@ -86,7 +88,16 @@ Drupal.ckeditorInit = function(textarea_id) {
+ 
+   if (typeof textarea_settings['js_conf'] != 'undefined'){
+       for (var add_conf in textarea_settings['js_conf']){
+-          textarea_settings[add_conf] = eval(textarea_settings['js_conf'][add_conf]);
++          var data;
++          if (add_conf == 'toolbar') {
++            data = Drupal.ckeditorToolbarToArray(textarea_settings['js_conf'][add_conf]);
++          } else if (typeof textarea_settings['js_conf'][add_conf] === "boolean" ) {
++            data = textarea_settings['js_conf'][add_conf];
++          } else {
++            data = JSON.parse(textarea_settings['js_conf'][add_conf].replace(/'/g, '"'));
++          }
++
++          textarea_settings[add_conf] = data;
+       }
+   }
+ 
+@@ -361,6 +372,17 @@ Drupal.ckeditorLinebreakConvert = function(textarea_id, text) {
+   return text;
+ }
+ 
++if (typeof(Drupal.ckeditorToolbarToArray) == 'undefined') {
++  Drupal.ckeditorToolbarToArray = function (toolbar) {
++    toolbar = toolbar.replace(/\r?\n|\r/gmi, '')
++        .replace(/\s/gmi, '')
++        .replace(/([a-zA-Z0-9]+?):/g, '"$1":')
++        .replace(/'/g, '"');
++
++    return JSON.parse(toolbar);
++  };
++}
++
+ /**
+  * Ajax support [#741572]
+  */
+diff --git a/includes/jqueryUI/sort.js b/includes/jqueryUI/sort.js
+index 5acea57..19d5331 100644
+--- a/includes/jqueryUI/sort.js
++++ b/includes/jqueryUI/sort.js
+@@ -76,18 +76,18 @@ jQuery(document).ready(function() {
+         jQuery("li.sortableItem").mouseout(function(){
+             jQuery(".sortableList").sortable("enable");
+         });
+-    }
++    };
+ 
+     Drupal.ckeditorToolbarReload = function() {
+         jQuery(".sortableList").sortable('destroy');
+         jQuery(".sortableRow").sortable('destroy');
+         jQuery("li.sortableItem").unbind();
+         Drupal.ckeditorToolbaInit();
+-    }
++    };
+ 
+     Drupal.ckeditorToolbarUsedRender = function() {
+         var toolbar = jQuery('#edit-toolbar').val();
+-        toolbar = eval(toolbar);
++        toolbar = Drupal.ckeditorToolbarToArray(toolbar);
+         var html = '<div class="sortableListDiv"><span class="sortableListSpan"><ul class="sortableRow">';
+         var group = false;
+ 
+@@ -115,13 +115,13 @@ jQuery(document).ready(function() {
+         }
+         html += '</ul></span></div>';
+         jQuery('#groupLayout').empty().append(html);
+-    }
++    };
+ 
+     Drupal.ckeditorToolbarAllRender = function() {
+         var toolbarUsed = jQuery('#edit-toolbar').val();
+         var toolbarAll = Drupal.settings.cke_toolbar_buttons_all;
+ 
+-        var htmlArray = new Array();
++        var htmlArray = [];
+         var html = '';
+ 
+         for (var i in toolbarAll) {
+@@ -144,6 +144,17 @@ jQuery(document).ready(function() {
+             html += '<div class="sortableListDiv"><span class="sortableListSpan"><ul class="sortableRow">' + htmlArray[j] + '</ul></span></div>';
+         }
+         jQuery('#allButtons').empty().append(html);
++    };
++
++    if (typeof(Drupal.ckeditorToolbarToArray) == 'undefined') {
++        Drupal.ckeditorToolbarToArray = function (toolbar) {
++            toolbar = toolbar.replace(/\r?\n|\r/gmi, '')
++                .replace(/\s/gmi, '')
++                .replace(/([a-zA-Z0-9]+?):/g, '"$1":')
++                .replace(/'/g, '"');
++
++            return JSON.parse(toolbar);
++        };
+     }
+ 
+     Drupal.ckeditorToolbaInit();
+diff --git a/plugins/linktomenu/jscripts/functions.js b/plugins/linktomenu/jscripts/functions.js
+index a1cba14..52be2d4 100644
+--- a/plugins/linktomenu/jscripts/functions.js
++++ b/plugins/linktomenu/jscripts/functions.js
+@@ -62,7 +62,7 @@ function loadCategories(obj) {
+ 		},
+ 		success : function(data) {
+ 			try {
+-				var results = eval('(' + data + ');');
++				var results = JSON.parse(data);
+ 				_clearNodeList();
+ 				if ((obj == null) || ($(obj).get(0).value > -1)) {
+ 					_fillDropdown(obj, results);
+diff --git a/plugins/linktonode/jscripts/functions.js b/plugins/linktonode/jscripts/functions.js
+index c10fa4b..2818c22 100644
+--- a/plugins/linktonode/jscripts/functions.js
++++ b/plugins/linktonode/jscripts/functions.js
+@@ -63,7 +63,7 @@ function loadCategories(obj) {
+ 		},
+ 		success : function(data) {
+ 			try {
+-				var results = eval('(' + data + ');');
++				var results = JSON.parse(data);
+ 				_clearNodeList();
+ 				if ((obj == null) || ($(obj).get(0).value > -1)) {
+ 					_fillDropdown(obj, results);
