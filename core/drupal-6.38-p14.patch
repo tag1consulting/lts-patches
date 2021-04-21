@@ -1,0 +1,555 @@
+diff --git a/CHANGELOG.txt b/CHANGELOG.txt
+index 043cd44..3ffb6a8 100644
+--- a/CHANGELOG.txt
++++ b/CHANGELOG.txt
+@@ -1,3 +1,11 @@
++Drupal 6.38-p14, 2021-04-21 - SA-CORE-2021-002
++
++Drupal core's sanitization API fails to properly filter cross-site scripting under certain circumstances.
++
++Upstream reference:
++https://www.drupal.org/sa-core-2021-002
++
++
+ Drupal 6.38-p13, 2020-11-18 - SA-CORE-2020-012
+ 
+ Drupal core does not properly sanitize certain filenames on uploaded files, which can lead to files being interpreted as the incorrect extension and served as the wrong MIME type or executed as PHP for certain hosting configurations.
+diff --git a/modules/aggregator/aggregator.info b/modules/aggregator/aggregator.info
+index d21682d..b0c76db 100644
+--- a/modules/aggregator/aggregator.info
++++ b/modules/aggregator/aggregator.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/block/block.info b/modules/block/block.info
+index edce769..9ee5be3 100644
+--- a/modules/block/block.info
++++ b/modules/block/block.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/blog/blog.info b/modules/blog/blog.info
+index 322cc79..dd65ff8 100644
+--- a/modules/blog/blog.info
++++ b/modules/blog/blog.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/blogapi/blogapi.info b/modules/blogapi/blogapi.info
+index 6b62172..0b80f26 100644
+--- a/modules/blogapi/blogapi.info
++++ b/modules/blogapi/blogapi.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/book/book.info b/modules/book/book.info
+index ce6f748..beea069 100644
+--- a/modules/book/book.info
++++ b/modules/book/book.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/color/color.info b/modules/color/color.info
+index 9c05696..d27c45d 100644
+--- a/modules/color/color.info
++++ b/modules/color/color.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/comment/comment.info b/modules/comment/comment.info
+index af7e3cf..aaf0884 100644
+--- a/modules/comment/comment.info
++++ b/modules/comment/comment.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/contact/contact.info b/modules/contact/contact.info
+index 04a0001..a43702b 100644
+--- a/modules/contact/contact.info
++++ b/modules/contact/contact.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/dblog/dblog.info b/modules/dblog/dblog.info
+index 200aa07..8f01931 100644
+--- a/modules/dblog/dblog.info
++++ b/modules/dblog/dblog.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/filter/filter.info b/modules/filter/filter.info
+index ef90197..cb516ab 100644
+--- a/modules/filter/filter.info
++++ b/modules/filter/filter.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/filter/filter.module b/modules/filter/filter.module
+index e603b25..30f442b 100644
+--- a/modules/filter/filter.module
++++ b/modules/filter/filter.module
+@@ -1116,7 +1116,13 @@ function _filter_xss_attributes($attr) {
+         // Attribute name, href for instance
+         if (preg_match('/^([-a-zA-Z]+)/', $attr, $match)) {
+           $attrname = strtolower($match[1]);
+-          $skip = ($attrname == 'style' || substr($attrname, 0, 2) == 'on');
++          $skip = (
++            $attrname == 'style' ||
++            substr($attrname, 0, 2) == 'on' ||
++            substr($attrname, 0, 1) == '-' ||
++            // Ignore long attributes to avoid unnecessary processing overhead.
++            strlen($attrname) > 96
++          );
+           $working = $mode = 1;
+           $attr = preg_replace('/^[-a-zA-Z]+/', '', $attr);
+         }
+diff --git a/modules/forum/forum.info b/modules/forum/forum.info
+index 5435e04..f1d3cab 100644
+--- a/modules/forum/forum.info
++++ b/modules/forum/forum.info
+@@ -7,7 +7,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/help/help.info b/modules/help/help.info
+index adeb95d..02ea37f 100644
+--- a/modules/help/help.info
++++ b/modules/help/help.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/locale/locale.info b/modules/locale/locale.info
+index 62df999..17bd8d3 100644
+--- a/modules/locale/locale.info
++++ b/modules/locale/locale.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/menu/menu.info b/modules/menu/menu.info
+index d26da39..6fca86e 100644
+--- a/modules/menu/menu.info
++++ b/modules/menu/menu.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/node/node.info b/modules/node/node.info
+index 1079792..95ba0af 100644
+--- a/modules/node/node.info
++++ b/modules/node/node.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/openid/openid.info b/modules/openid/openid.info
+index d40da54..025eaf6 100644
+--- a/modules/openid/openid.info
++++ b/modules/openid/openid.info
+@@ -5,7 +5,7 @@ package = Core - optional
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/path/path.info b/modules/path/path.info
+index 28b33be..3776f6d 100644
+--- a/modules/path/path.info
++++ b/modules/path/path.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/php/php.info b/modules/php/php.info
+index 306262b..924dd6c 100644
+--- a/modules/php/php.info
++++ b/modules/php/php.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/ping/ping.info b/modules/ping/ping.info
+index ab145be..cb949b9 100644
+--- a/modules/ping/ping.info
++++ b/modules/ping/ping.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/poll/poll.info b/modules/poll/poll.info
+index dba65d9..33da3c0 100644
+--- a/modules/poll/poll.info
++++ b/modules/poll/poll.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/profile/profile.info b/modules/profile/profile.info
+index 8d72358..674fd37 100644
+--- a/modules/profile/profile.info
++++ b/modules/profile/profile.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/search/search.info b/modules/search/search.info
+index 2e6617c..606c942 100644
+--- a/modules/search/search.info
++++ b/modules/search/search.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/statistics/statistics.info b/modules/statistics/statistics.info
+index c0d41ba..c1abf83 100644
+--- a/modules/statistics/statistics.info
++++ b/modules/statistics/statistics.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/syslog/syslog.info b/modules/syslog/syslog.info
+index 89ce86e..dd6f1ab 100644
+--- a/modules/syslog/syslog.info
++++ b/modules/syslog/syslog.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/system/system.info b/modules/system/system.info
+index 80469ce..940bcee 100644
+--- a/modules/system/system.info
++++ b/modules/system/system.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/system/system.module b/modules/system/system.module
+index 2cd32e3..1113534 100644
+--- a/modules/system/system.module
++++ b/modules/system/system.module
+@@ -8,7 +8,7 @@
+ /**
+  * The current system version.
+  */
+-define('VERSION', '6.38-p13');
++define('VERSION', '6.38-p14');
+ 
+ /**
+  * Core API compatibility.
+diff --git a/modules/taxonomy/taxonomy.info b/modules/taxonomy/taxonomy.info
+index edca12c..4974eb7 100644
+--- a/modules/taxonomy/taxonomy.info
++++ b/modules/taxonomy/taxonomy.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/throttle/throttle.info b/modules/throttle/throttle.info
+index 2be2c07..c564192 100644
+--- a/modules/throttle/throttle.info
++++ b/modules/throttle/throttle.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/tracker/tracker.info b/modules/tracker/tracker.info
+index 35000be..163a260 100644
+--- a/modules/tracker/tracker.info
++++ b/modules/tracker/tracker.info
+@@ -6,7 +6,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/translation/translation.info b/modules/translation/translation.info
+index 9b5a986..de630df 100644
+--- a/modules/translation/translation.info
++++ b/modules/translation/translation.info
+@@ -6,7 +6,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/trigger/trigger.info b/modules/trigger/trigger.info
+index 694c471..0c00c5e 100644
+--- a/modules/trigger/trigger.info
++++ b/modules/trigger/trigger.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/update/update.info b/modules/update/update.info
+index 7c50721..5bd7c64 100644
+--- a/modules/update/update.info
++++ b/modules/update/update.info
+@@ -5,7 +5,7 @@ package = Core - optional
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/upload/upload.info b/modules/upload/upload.info
+index 81ebc54..92b4c3a 100644
+--- a/modules/upload/upload.info
++++ b/modules/upload/upload.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/modules/user/user.info b/modules/user/user.info
+index 11a6663..56b0451 100644
+--- a/modules/user/user.info
++++ b/modules/user/user.info
+@@ -5,7 +5,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/bluemarine/bluemarine.info b/themes/bluemarine/bluemarine.info
+index 74e10e0..9c9e087 100644
+--- a/themes/bluemarine/bluemarine.info
++++ b/themes/bluemarine/bluemarine.info
+@@ -5,7 +5,7 @@ core = 6.x
+ engine = phptemplate
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/chameleon/chameleon.info b/themes/chameleon/chameleon.info
+index b0b7fb7..89fe7bd 100644
+--- a/themes/chameleon/chameleon.info
++++ b/themes/chameleon/chameleon.info
+@@ -12,7 +12,7 @@ version = VERSION
+ core = 6.x
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/chameleon/marvin/marvin.info b/themes/chameleon/marvin/marvin.info
+index c79ec2a..acbb299 100644
+--- a/themes/chameleon/marvin/marvin.info
++++ b/themes/chameleon/marvin/marvin.info
+@@ -7,7 +7,7 @@ core = 6.x
+ base theme = chameleon
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/garland/garland.info b/themes/garland/garland.info
+index 5102d42..3d3bc15 100644
+--- a/themes/garland/garland.info
++++ b/themes/garland/garland.info
+@@ -7,7 +7,7 @@ stylesheets[all][] = style.css
+ stylesheets[print][] = print.css
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/garland/minnelli/minnelli.info b/themes/garland/minnelli/minnelli.info
+index a9d1d4b..4488556 100644
+--- a/themes/garland/minnelli/minnelli.info
++++ b/themes/garland/minnelli/minnelli.info
+@@ -6,7 +6,7 @@ base theme = garland
+ stylesheets[all][] = minnelli.css
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
+diff --git a/themes/pushbutton/pushbutton.info b/themes/pushbutton/pushbutton.info
+index 70178f7..86384ef 100644
+--- a/themes/pushbutton/pushbutton.info
++++ b/themes/pushbutton/pushbutton.info
+@@ -5,7 +5,7 @@ core = 6.x
+ engine = phptemplate
+ 
+ ; Information added by Drupal.org packaging script on 2016-02-24
+-version = "6.38-p13"
++version = "6.38-p14"
+ project = "drupal"
+ datestamp = "1456343372"
+ 
