@@ -1,0 +1,91 @@
+diff --git a/CHANGELOG.txt b/CHANGELOG.txt
+index 522816c..3fb6202 100644
+--- a/CHANGELOG.txt
++++ b/CHANGELOG.txt
+@@ -1,7 +1,13 @@
+ 
+-jQuery UI 6.x-1.x, xxxx-xx-xx
++jQuery UI 6.x-1.5-p1, 2022-01-20, SA-CORE-2022-002
+ -----------------------------
+ 
++jQuery UI was included in Drupal core starting in Drupal 7.
++
++This update addresses cross-site-scripting (XSS) vulnerabilities, particularly
++in the datepicker widget.
++
++Upstream reference: https://www.drupal.org/sa-core-2022-002
+ 
+ jQuery UI 6.x-1.x, 2011-06-16
+ -----------------------------
+diff --git a/jquery.ui.datepicker-1.13.0-backport.js b/jquery.ui.datepicker-1.13.0-backport.js
+new file mode 100644
+index 0000000..2593553
+--- /dev/null
++++ b/jquery.ui.datepicker-1.13.0-backport.js
+@@ -0,0 +1,37 @@
++/**
++ * Backport of security fixes from:
++ * https://github.com/jquery/jquery-ui/pull/1953
++ * https://github.com/jquery/jquery-ui/pull/1954
++ */
++
++(function ($, Drupal) {
++
++  // No backport is needed if we're already on jQuery UI 1.13 or higher.
++  var versionParts = $.ui.datepicker.version.split('.');
++  var majorVersion = parseInt(versionParts[0]);
++  var minorVersion = parseInt(versionParts[1]);
++  if ( (majorVersion > 1) || (majorVersion === 1 && minorVersion >= 13) ) {
++    return;
++  }
++
++  var fnOriginalGet = $.datepicker._get;
++  $.extend($.datepicker, {
++
++    _get: function( inst, name ) {
++      var val = fnOriginalGet.call(this, inst, name);
++
++      // @see https://github.com/jquery/jquery-ui/pull/1954
++      if (name === 'altField') {
++        val = $(document).find(val);
++      }
++      // @see https://github.com/jquery/jquery-ui/pull/1953
++      else if ($.inArray(name, ['appendText', 'buttonText', 'prevText', 'currentText', 'nextText', 'closeText']) !== -1) {
++        val = Drupal.checkPlain(val);
++      }
++
++      return val;
++    }
++
++  })
++})(jQuery, Drupal);
++
+diff --git a/jquery_ui.info b/jquery_ui.info
+index f5d49ae..4f7121a 100644
+--- a/jquery_ui.info
++++ b/jquery_ui.info
+@@ -4,7 +4,7 @@ package = User interface
+ core = 6.x
+ 
+ ; Information added by drupal.org packaging script on 2011-06-17
+-version = "6.x-1.5"
++version = "6.x-1.5-p1"
+ core = "6.x"
+ project = "jquery_ui"
+ datestamp = "1308323216"
+diff --git a/jquery_ui.module b/jquery_ui.module
+index 8e47caa..a48e68b 100644
+--- a/jquery_ui.module
++++ b/jquery_ui.module
+@@ -68,6 +68,11 @@ function jquery_ui_add($files = array()) {
+       $js_path = $jquery_ui_path . '/' . $file_path;
+       drupal_add_js($js_path);
+       $loaded_files[$file] = $js_path;
++
++      // Add backport of security fixes from jQuery UI 1.13.0.
++      if ($file == 'ui.datepicker') {
++        drupal_add_js(drupal_get_path('module', 'jquery_ui') . '/jquery.ui.datepicker-1.13.0-backport.js');
++      }
+     }
+   }
+ }
